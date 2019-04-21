@@ -56,6 +56,16 @@ func handler(
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *models.Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			origin = "*"
+		}
+
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE")
+		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
 		token, claims, err := tokenFunc(r)
 		if err != nil {
 			log.Println("Error validating token:", err)

@@ -12,6 +12,11 @@
         </q-btn>
 
         <q-toolbar-title>Bella Ciao</q-toolbar-title>
+
+        <span v-if="$token.value">Welcome {{ $token.value.name }}</span>
+        <q-btn v-if="$token.value" flat round @click="onLogout">
+          <q-icon name="logout" />
+        </q-btn>
       </q-toolbar>
     </q-header>
 
@@ -45,17 +50,20 @@
 </template>
 
 <script>
-import { openURL } from "quasar";
+import tokenMixin from "../pages/Index";
 
 export default {
   name: "MyLayout",
+  mixins: [tokenMixin],
   data() {
     return {
       leftDrawerOpen: this.$q.platform.is.desktop
     };
   },
   methods: {
-    openURL
+    onLogout: function() {
+      this.logout();
+    }
   }
 };
 </script>
