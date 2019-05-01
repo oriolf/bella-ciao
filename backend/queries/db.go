@@ -3,16 +3,19 @@ package queries
 import (
 	"database/sql"
 
+	"github.com/oriolf/bella-ciao/backend/models"
 	"github.com/pkg/errors"
 )
 
 func InitDB(db *sql.DB) error {
-	tables := []string{
-		"CREATE TABLE IF NOT EXISTS users (id serial PRIMARY KEY, name TEXT, unique_id text UNIQUE, password TEXT, salt TEXT, role TEXT);",
+	types := []models.DBType{
+		models.User{},
+		models.Election{},
+		models.Candidate{},
+		models.Vote{},
 	}
-
-	for i, table := range tables {
-		if _, err := db.Exec(table); err != nil {
+	for i, table := range types {
+		if _, err := db.Exec(table.CreateTableQuery()); err != nil {
 			return errors.Wrapf(err, "error executing init query %d", i)
 		}
 	}

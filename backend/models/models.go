@@ -1,10 +1,15 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 )
+
+type DBType interface {
+	CreateTableQuery() string
+}
 
 type Claims struct {
 	User
@@ -24,6 +29,17 @@ type User struct {
 	Role     string `json:"role"`
 }
 
+func (u User) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS users (
+		id serial PRIMARY KEY,
+		name TEXT NOT NULL,
+		unique_id text UNIQUE NOT NULL,
+		password TEXT NOT NULL,
+		salt TEXT NOT NULL,
+		role TEXT NOT NULL
+	);`
+}
+
 type Election struct {
 	ID    int       `json:"id"`
 	Name  string    `json:"name"`
@@ -35,6 +51,19 @@ type Election struct {
 	MinCandidates int    `json:"min_candidates"`
 }
 
+func (e Election) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS elections (
+		id serial PRIMARY KEY,
+		name TEXT NOT NULL,
+		start TIMESTAMP WITH TIME ZONE NOT NULL,
+		end TIMESTAMP WITH TIME ZONE NOT NULL,
+		count_type TEXT NOT NULL,
+		max_candidates INTEGER NOT NULL CHECK (max_candidates > 0),
+		min_candidates INTEGER NOT NULL CHECK (min_candidates > 0),
+		CHECK (max_candidates >= min_candidates)
+	);`
+}
+
 type Candidate struct {
 	ID           int    `json:"id"`
 	ElectionID   int    `json:"election_id"`
@@ -43,9 +72,28 @@ type Candidate struct {
 	Image        string `json:"image"`
 }
 
+func (c Candidate) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS candidates (
+		id serial PRIMARY KEY,
+		election_id INTEGER NOT NULL REFERENCES elections(id),
+		name TEXT NOT NULL,
+		presentation TEXT NOT NULL,
+		image TEXT NOT NULL
+	);`
+}
+
 type Vote struct {
-	ID               int    `json:"id"`
-	Hash             string `json:"hash"`
-	Candidates       []int  `json:"candidates"`
-	CandidatesString string `json:"-"`
+	ID         int    `json:"id"`
+	Hash       string `json:"hash"`
+	Candidates []int  `json:"candidates"`
+
+	CandidatesString json.RawMessage `json:"-"`
+}
+
+func (v Vote) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS votes (
+		id serial PRIMARY KEY,
+		hash TEXT UNIQUE NOT NULL,
+		candidates json NOT NULL,
+	);`
 }
