@@ -4,13 +4,10 @@
       <div class="col" style="margin: 10px;">
         <div class="text-h6">{{ $t("ACTIVE_VOTES") }}</div>
 
-        <q-list
-          v-for="election in elections"
-          :key="election.id"
-          bordered
-          class="rounded-borders"
-        >
+        <q-list bordered class="rounded-borders">
           <q-expansion-item
+            v-for="election in elections"
+            :key="election.id"
             expand-separator
             :label="electionLabel(election)"
             :caption="electionCaption(election)"
@@ -91,12 +88,14 @@ export const tokenMixin = {
       var base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
       this.$token.value = JSON.parse(window.atob(base64));
       this.$token.str = tokenStr;
-      this.$router.push("/"); // TODO maybe not always reload...
-      this.$forceUpdate(); // TODO does not work
+      this.$axios.defaults.headers.common["Authorization"] =
+        "bearer " + tokenStr;
+      this.reloadData();
     },
     logout: function() {
       this.$token.value = null;
       this.$token.str = "";
+      this.$axios.defaults.headers.common["Authorization"] = "";
       this.$router.push("/");
       this.$forceUpdate();
     }
@@ -119,19 +118,22 @@ export default {
     };
   },
   created: function() {
-    this.$axios
-      .get(apiURL("/elections/get"), {
-        headers: { Authorization: "bearer " + this.$token.str }
-      })
-      .then(res => {
-        console.log("ELECTIONS:", res.data);
-        this.elections = res.data;
-      })
-      .catch(() => {
-        this.$q.notify("Error getting elections");
-      });
+    this.reloadData();
   },
   methods: {
+    reloadData: function() {
+      this.reloadElections();
+    },
+    reloadElections: function() {
+      this.$axios
+        .get(apiURL("/elections/get"))
+        .then(res => {
+          this.elections = res.data;
+        })
+        .catch(() => {
+          this.$q.notify("Error getting elections");
+        });
+    },
     onLogin: function() {
       this.$axios
         .post(
