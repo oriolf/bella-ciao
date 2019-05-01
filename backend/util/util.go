@@ -16,6 +16,10 @@ import (
 // TODO move to environment?
 var JWTKey = []byte("my_secret_key")
 
+func IsAdmin(claims *models.Claims) bool {
+	return claims != nil && claims.User.Role == "admin"
+}
+
 func GetParams(r *http.Request, model interface{}) error {
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)

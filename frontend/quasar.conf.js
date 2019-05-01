@@ -38,7 +38,8 @@ module.exports = function(ctx) {
         "QCardSection",
         "QCardActions",
         "QForm",
-        "QInput"
+        "QInput",
+        "QExpansionItem"
       ],
 
       directives: ["Ripple"],

@@ -13,8 +13,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-func NoToken(*http.Request) (*jwt.Token, *models.Claims, error) {
-	return &jwt.Token{}, nil, nil
+func NoToken(r *http.Request) (*jwt.Token, *models.Claims, error) {
+	token, claims, err := UserToken(r)
+	if err != nil {
+		return &jwt.Token{}, nil, nil
+	}
+
+	return token, claims, nil
 }
 
 func ValidatedToken(r *http.Request) (*jwt.Token, *models.Claims, error) {

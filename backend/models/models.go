@@ -41,22 +41,26 @@ func (u User) CreateTableQuery() string {
 }
 
 type Election struct {
-	ID    int       `json:"id"`
-	Name  string    `json:"name"`
-	Start time.Time `json:"start"`
-	End   time.Time `json:"end"`
+	ID     int       `json:"id"`
+	Name   string    `json:"name"`
+	Start  time.Time `json:"start"`
+	End    time.Time `json:"end"`
+	Public bool      `json:"public"`
 
 	CountType     string `json:"count_type"`
 	MaxCandidates int    `json:"max_candidates"`
 	MinCandidates int    `json:"min_candidates"`
+
+	Candidates []Candidate `json:"candidates"`
 }
 
 func (e Election) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS elections (
 		id serial PRIMARY KEY,
 		name TEXT NOT NULL,
-		start TIMESTAMP WITH TIME ZONE NOT NULL,
-		end TIMESTAMP WITH TIME ZONE NOT NULL,
+		date_start TIMESTAMP WITH TIME ZONE NOT NULL,
+		date_end TIMESTAMP WITH TIME ZONE NOT NULL,
+		public BOOLEAN NOT NULL,
 		count_type TEXT NOT NULL,
 		max_candidates INTEGER NOT NULL CHECK (max_candidates > 0),
 		min_candidates INTEGER NOT NULL CHECK (min_candidates > 0),
@@ -94,6 +98,6 @@ func (v Vote) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS votes (
 		id serial PRIMARY KEY,
 		hash TEXT UNIQUE NOT NULL,
-		candidates json NOT NULL,
+		candidates json NOT NULL
 	);`
 }

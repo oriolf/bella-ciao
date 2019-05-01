@@ -6,6 +6,10 @@ export default {
   success: "Action was successful",
   MENU: "MENU",
   HOME: "Home",
+  FROM_DATE: "From",
+  TO_DATE: "to",
+  ACTIVE_VOTES: "Active votes",
+  PRIVATE: "private",
   faqs: {
     title: "Frequently Asked Questions",
     question1: "First question",

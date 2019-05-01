@@ -26,7 +26,7 @@ func main() {
 	http.HandleFunc("/auth/refresh", handler(api.UserToken, noParams, api.Refresh))
 	// http.HandleFunc("/auth/logout", handler(userToken, noParams, login)) // TODO optional blacklist token
 
-	// http.HandleFunc("/elections/get", handler(userToken, noParams, createElection))
+	http.HandleFunc("/elections/get", handler(api.NoToken, noParams, api.GetElections))
 	// http.HandleFunc("/elections/create", handler(adminToken, electionParams, createElection))
 	// http.HandleFunc("/elections/update", handler(adminToken, electionParams, updateElection))
 	// http.HandleFunc("/elections/delete", handler(adminToken, electionParams, deleteElection))
@@ -63,7 +63,7 @@ func handler(
 
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type")
+		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
 		token, claims, err := tokenFunc(r)

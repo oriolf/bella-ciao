@@ -1,10 +1,38 @@
 <template>
   <q-page class="flex">
     <div class="row" style="width: 100%;">
-      <div class="col"></div>
+      <div class="col" style="margin: 10px;">
+        <div class="text-h6">{{ $t("ACTIVE_VOTES") }}</div>
 
-      <div v-if="!$token.value" class="col">
-        <q-card style="margin: 10px;">
+        <q-list
+          v-for="election in elections"
+          :key="election.id"
+          bordered
+          class="rounded-borders"
+        >
+          <q-expansion-item
+            expand-separator
+            :label="electionLabel(election)"
+            :caption="electionCaption(election)"
+          >
+            <q-card>
+              <q-card-section>
+                <ul>
+                  <li
+                    v-for="candidate in election.candidates"
+                    :key="candidate.id"
+                  >
+                    {{ candidate.name }}
+                  </li>
+                </ul>
+              </q-card-section>
+            </q-card>
+          </q-expansion-item>
+        </q-list>
+      </div>
+
+      <div v-if="!$token.value" class="col" style="margin: 10px;">
+        <q-card>
           <q-card-section>
             <div class="text-h6">Login</div>
           </q-card-section>
@@ -40,9 +68,11 @@
         </q-card>
       </div>
 
-      <div v-else class="col">
+      <div v-else class="col" style="margin: 10px;">
         <p v-if="$token.value.role === 'admin'">You are an administrator</p>
-        <p v-if="$token.value.role === 'validated'">You have been validated</p>
+        <p v-else-if="$token.value.role === 'validated'">
+          You have been validated
+        </p>
         <p v-else>You have not been validated yet</p>
       </div>
     </div>
@@ -73,21 +103,39 @@ export const tokenMixin = {
   }
 };
 
+const apiURL = suffix => {
+  let location = window.location;
+  return location.protocol + "//" + location.hostname + ":9876" + suffix;
+};
+
 export default {
   name: "PageIndex",
   mixins: [tokenMixin],
   data: function() {
     return {
       uniqueID: "",
-      password: ""
+      password: "",
+      elections: null
     };
+  },
+  created: function() {
+    this.$axios
+      .get(apiURL("/elections/get"), {
+        headers: { Authorization: "bearer " + this.$token.str }
+      })
+      .then(res => {
+        console.log("ELECTIONS:", res.data);
+        this.elections = res.data;
+      })
+      .catch(() => {
+        this.$q.notify("Error getting elections");
+      });
   },
   methods: {
     onLogin: function() {
       this.$axios
         .post(
-          // TODO proper url handling
-          "http://localhost:9876/auth/login",
+          apiURL("/auth/login"),
           JSON.stringify({
             unique_id: this.uniqueID,
             password: this.password
@@ -101,6 +149,20 @@ export default {
     onResetLogin: function() {
       this.uniqueID = "";
       this.password = "";
+    },
+    electionCaption: function(election) {
+      let from = this.$t("FROM_DATE");
+      let to = this.$t("TO_DATE");
+      let start = new Date(election.start).toLocaleString();
+      let end = new Date(election.end).toLocaleString();
+      return `${from} ${start} ${to} ${end}`;
+    },
+    electionLabel: function(election) {
+      if (!election.public) {
+        let isPrivate = this.$t("PRIVATE");
+        return election.name + ` (${isPrivate})`;
+      }
+      return election.name;
     }
   }
 };
