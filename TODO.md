@@ -12,3 +12,5 @@
 - Permetre registrar una persona directament per a votació presencial.
 - Una pàgina amb les estadistiques de participació.
 - To inform users that they have been validated without using email: https://medium.com/finizens-engineering/usando-push-notifications-en-tu-web-7e6711e9070e
+  https://justmarkup.com/articles/2017-02-07-implementing-push-notifications/
+  https://github.com/web-push-libs
