@@ -1,5 +1,5 @@
 // TODO maybe some consts could be defined by environment variables
-package consts
+package main
 
 const (
 	// ID_ represent types of identification documents used for a user's unique ID

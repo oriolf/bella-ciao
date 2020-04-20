@@ -1,4 +1,4 @@
-package util
+package main
 
 import (
 	"crypto/rand"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/oriolf/bella-ciao/backend/models"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 )
@@ -16,7 +15,7 @@ import (
 // TODO move to environment?
 var JWTKey = []byte("my_secret_key")
 
-func IsAdmin(claims *models.Claims) bool {
+func IsAdmin(claims *Claims) bool {
 	return claims != nil && claims.User.Role == "admin"
 }
 
@@ -82,9 +81,9 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 	return nil
 }
 
-func GenerateToken(user models.User) (string, error) {
+func GenerateToken(user User) (string, error) {
 	expirationTime := time.Now().Add(5 * time.Minute)
-	claims := &models.Claims{
+	claims := &Claims{
 		User:           user,
 		StandardClaims: jwt.StandardClaims{ExpiresAt: expirationTime.Unix()},
 	}

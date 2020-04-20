@@ -10,9 +10,6 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/oriolf/bella-ciao/backend/api"
-	"github.com/oriolf/bella-ciao/backend/models"
-	"github.com/oriolf/bella-ciao/backend/queries"
 )
 
 var db *sql.DB
@@ -21,12 +18,12 @@ func main() {
 	db = initDB()
 	defer db.Close()
 
-	http.HandleFunc("/auth/register", handler(api.NoToken, api.GetRegisterParams, api.Register))
-	http.HandleFunc("/auth/login", handler(api.NoToken, api.GetLoginParams, api.Login))
-	http.HandleFunc("/auth/refresh", handler(api.UserToken, noParams, api.Refresh))
+	http.HandleFunc("/auth/register", handler(NoToken, GetRegisterParams, Register))
+	http.HandleFunc("/auth/login", handler(NoToken, GetLoginParams, Login))
+	http.HandleFunc("/auth/refresh", handler(UserToken, noParams, Refresh))
 	// http.HandleFunc("/auth/logout", handler(userToken, noParams, login)) // TODO optional blacklist token
 
-	http.HandleFunc("/elections/get", handler(api.NoToken, noParams, api.GetElections))
+	http.HandleFunc("/elections/get", handler(NoToken, noParams, GetElectionsHandler))
 	// http.HandleFunc("/elections/create", handler(adminToken, electionParams, createElection))
 	// http.HandleFunc("/elections/update", handler(adminToken, electionParams, updateElection))
 	// http.HandleFunc("/elections/delete", handler(adminToken, electionParams, deleteElection))
@@ -43,7 +40,7 @@ func initDB() *sql.DB {
 		log.Fatalln("Error during database connection:", err)
 	}
 
-	if err := queries.InitDB(db); err != nil {
+	if err := InitDB(db); err != nil {
 		log.Fatalln("Error during database initialization:", err)
 	}
 
@@ -51,9 +48,9 @@ func initDB() *sql.DB {
 }
 
 func handler(
-	tokenFunc func(*http.Request) (*jwt.Token, *models.Claims, error),
+	tokenFunc func(*http.Request) (*jwt.Token, *Claims, error),
 	paramsFunc func(*http.Request, *jwt.Token) (interface{}, error),
-	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *models.Claims, interface{}) error,
+	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
