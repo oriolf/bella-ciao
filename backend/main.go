@@ -2,21 +2,18 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 
-	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/dgrijalva/jwt-go"
 )
 
-var db *sql.DB
+const dbfile = "db.db"
 
 func main() {
-	db = initDB()
-	defer db.Close()
+	initDB()
 
 	http.HandleFunc("/auth/register", handler(NoToken, GetRegisterParams, Register))
 	http.HandleFunc("/auth/login", handler(NoToken, GetLoginParams, Login))
@@ -29,22 +26,20 @@ func main() {
 	// http.HandleFunc("/elections/delete", handler(adminToken, electionParams, deleteElection))
 	// http.HandleFunc("/elections/vote", handler(validatedToken, voteParams, vote))
 
+	log.Println("Start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
 }
 
-func initDB() *sql.DB {
-	dbUser, dbPassword := os.Getenv("BELLACIAO_USER"), os.Getenv("BELLACIAO_PASS")
-	connStr := fmt.Sprintf("host=localhost port=5432 user=%s password=%s dbname=bella_ciao sslmode=disable", dbUser, dbPassword)
-	db, err := sql.Open("postgres", connStr)
+func initDB() {
+	db, err := sql.Open("sqlite3", dbfile)
 	if err != nil {
 		log.Fatalln("Error during database connection:", err)
 	}
+	defer db.Close()
 
 	if err := InitDB(db); err != nil {
 		log.Fatalln("Error during database initialization:", err)
 	}
-
-	return db
 }
 
 func handler(
@@ -53,6 +48,7 @@ func handler(
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// TODO remove, should not be necessary if domains are properly set, which they should
 		origin := r.Header.Get("Origin")
 		if origin == "" {
 			origin = "*"
@@ -76,6 +72,12 @@ func handler(
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
+
+		db, err := sql.Open("sqlite3", dbfile)
+		if err != nil {
+			log.Fatalln("Error during database connection in handler:", err)
+		}
+		defer db.Close()
 
 		if err := handleFunc(w, db, token, claims, params); err != nil {
 			log.Println("Error handling request:", err)

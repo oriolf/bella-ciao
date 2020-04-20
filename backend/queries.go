@@ -2,8 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"strconv"
+	"strings"
 
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
@@ -51,12 +52,13 @@ func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	results, err := queryDB(db, scanElection, `
 		SELECT id, name, date_start, date_end, count_type, max_candidates, min_candidates, public 
-		FROM elections WHERE public OR public = $1 ORDER BY date_start ASC;`, onlyPublic)
+		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying elections")
 	}
 
 	var electionIDs []int
+	var elIDstring []string
 	electionsMap := make(map[int]Election)
 	for _, x := range results {
 		e, _ := x.(Election)
@@ -65,11 +67,12 @@ func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 		}
 		electionsMap[e.ID] = e
 		electionIDs = append(electionIDs, e.ID)
+		elIDstring = append(elIDstring, strconv.Itoa(e.ID))
 	}
 
 	results, err = queryDB(db, scanCandidate, `
-		SELECT id, election_id, name, presentation, image FROM candidates WHERE election_id=ANY($1) ORDER BY random();`,
-		pq.Array(electionIDs))
+		SELECT id, election_id, name, presentation, image FROM candidates WHERE election_id IN (?) ORDER BY random();`,
+		strings.Join(elIDstring, ","))
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying candidates")
 	}
@@ -105,13 +108,13 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 }
 
 func RegisterUser(db *sql.DB, user User) error {
-	_, err := db.Exec("INSERT INTO users (name, unique_id, password, salt, role) VALUES ($1, $2, $3, $4, 'none');",
+	_, err := db.Exec("INSERT INTO users (name, unique_id, password, salt, role) VALUES (?, ?, ?, ?, 'none');",
 		user.Name, user.UniqueID, user.Password, user.Salt)
 	return err
 }
 
 func GetUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
-	err = db.QueryRow("SELECT id, name, password, salt, role FROM users WHERE unique_id LIKE $1;", uniqueID).Scan(
+	err = db.QueryRow("SELECT id, name, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
 		&user.ID, &user.Name, &user.Password, &user.Salt, &user.Role)
 	user.UniqueID = uniqueID
 	return user, err
