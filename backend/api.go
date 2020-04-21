@@ -18,6 +18,24 @@ func NoToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
+func UserToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
+	auth := r.Header.Get("Authorization")
+	parts := strings.Split(auth, " ")
+	if len(parts) < 2 {
+		return token, claims, errors.New("")
+	}
+
+	claims = &Claims{} // required, nil claims is no use
+	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
+		return JWTKey, nil
+	})
+	if !token.Valid {
+		return token, claims, errors.New("invalid token")
+	}
+
+	return token, claims, nil
+}
+
 func ValidatedToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(r)
 	if err != nil {
@@ -44,28 +62,10 @@ func AdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
-func UserToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
-	auth := r.Header.Get("Authorization")
-	parts := strings.Split(auth, " ")
-	if len(parts) < 2 {
-		return token, claims, errors.New("")
-	}
-
-	claims = &Claims{} // required, nil claims is no use
-	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
-		return JWTKey, nil
-	})
-	if !token.Valid {
-		return token, claims, errors.New("invalid token")
-	}
-
-	return token, claims, nil
-}
-
 type registerParams struct {
-	Name     string
+	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
-	Password string
+	Password string `json:"password"`
 }
 
 func GetRegisterParams(r *http.Request, token *jwt.Token) (interface{}, error) {

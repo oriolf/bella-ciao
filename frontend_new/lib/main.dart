@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:bella_ciao/api.dart';
 
 void main() {
   runApp(BellaCiao());
@@ -69,54 +69,172 @@ class Page extends StatelessWidget {
 }
 
 class HomePage extends StatelessWidget {
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-
-  _login() {
-    print("Logging in with ID ${_idController.value.text} and password ${_passwordController.value.text}");
-  }
-
   @override
   Widget build(BuildContext context) {
-    var _idInput = TextField(
-      decoration: InputDecoration(
-        border: OutlineInputBorder(),
-        hintText: "ID",
-      ),
-      controller: _idController,
-    );
-    var _passwordInput = TextField(
-      obscureText: true,
-      decoration: InputDecoration(
-        border: OutlineInputBorder(),
-        hintText: "Password",
-      ),
-      controller: _passwordController,
-    );
-    var _submitButton = FlatButton(child: Text("Log in"), color: Colors.blue, textColor: Colors.white, onPressed: _login);
     return Page(
       title: "Inici",
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Card(
-            child: Container(
-              margin: EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text("Login", style: Theme.of(context).textTheme.headline4),
-                  SizedBox(height: 10),
-                  _idInput,
-                  SizedBox(height: 10),
-                  _passwordInput,
-                  SizedBox(height: 10),
-                  _submitButton,
-                ],
-              ),
-            ),
-          ),
+          LoginForm(),
         ],
+      ),
+    );
+  }
+}
+
+class LoginForm extends StatefulWidget {
+  @override
+  _LoginFormState createState() => _LoginFormState();
+}
+
+class _LoginFormState extends State<LoginForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _idController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordConfirmController = TextEditingController();
+  bool _registering = false;
+  String _title = "Login";
+  String _errorText = "";
+
+  Widget _buildIdInput() {
+    return _buildTextInput(_idController, "ID");
+  }
+
+  Widget _buildNameInput() {
+    return _buildTextInput(_nameController, "Name");
+  }
+
+  Widget _buildTextInput(TextEditingController controller, String name) {
+    return TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: name,
+        ),
+        validator: (value) {
+          if (value.length > 0) {
+            return null;
+          }
+          return "$name is required";
+        });
+  }
+
+  Widget _buildPasswordInput() {
+    return TextFormField(
+        controller: _passwordController,
+        obscureText: true,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: "Password",
+        ),
+        validator: (value) {
+          if (value.length > 4) {
+            // TODO use the same as MIN_PASSWORD_LENGTH set in backend
+            return null;
+          }
+          return "Password must be at least 4 characters long";
+        });
+  }
+
+  Widget _buildPasswordConfirmInput() {
+    return TextFormField(
+        controller: _passwordConfirmController,
+        obscureText: true,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: "Confirm password",
+        ),
+        validator: (value) {
+          if (value == _passwordController.value.text) {
+            return null;
+          }
+          return "Passwords must match";
+        });
+  }
+
+  Widget _buildSubmitButton() {
+    return FlatButton(
+      child: Text(_title),
+      color: Colors.blue,
+      textColor: Colors.white,
+      onPressed: _login,
+    );
+  }
+
+  Widget _buildRegisterButton() {
+    return FlatButton(
+      child: Text("Register"),
+      onPressed: () {
+        setState(() {
+          _registering = true;
+          _title = "Register";
+        });
+      },
+    );
+  }
+
+  _login() async {
+    if (_formKey.currentState.validate()) {
+      setState(() {
+        _errorText = "";
+      });
+      if (_registering) {
+        var res = await API.register(_nameController.value.text,
+            _idController.value.text, _passwordController.value.text);
+
+        if (!res) {
+          setState(() {
+            _errorText = "Register couldn't be completed";
+          });
+        }
+      } else {
+        var user = await API.login(
+            _idController.value.text, _passwordController.value.text);
+
+        if (user == null) {
+          setState(() {
+            _errorText = "Could not log in";
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var children = <Widget>[
+      Text(_title, style: Theme.of(context).textTheme.headline4),
+      SizedBox(height: 10),
+      _buildIdInput(),
+      SizedBox(height: 10),
+      _buildPasswordInput(),
+      SizedBox(height: 10),
+    ];
+    if (_registering) {
+      children.add(_buildPasswordConfirmInput());
+      children.add(SizedBox(height: 10));
+      children.add(_buildNameInput());
+      children.add(Text(_errorText));
+      children.add(_buildSubmitButton());
+    } else {
+      children.add(Text(_errorText));
+      children.add(Row(children: <Widget>[
+        _buildSubmitButton(),
+        _buildRegisterButton(),
+      ]));
+    }
+    return Card(
+      child: Container(
+        margin: EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
       ),
     );
   }

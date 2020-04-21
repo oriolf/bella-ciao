@@ -31,7 +31,7 @@ type User struct {
 
 func (u User) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS users (
-		id serial PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
 		unique_id text UNIQUE NOT NULL,
 		password TEXT NOT NULL,
@@ -56,7 +56,7 @@ type Election struct {
 
 func (e Election) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS elections (
-		id serial PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
 		date_start TIMESTAMP WITH TIME ZONE NOT NULL,
 		date_end TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -78,7 +78,7 @@ type Candidate struct {
 
 func (c Candidate) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS candidates (
-		id serial PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY,
 		election_id INTEGER NOT NULL REFERENCES elections(id),
 		name TEXT NOT NULL,
 		presentation TEXT NOT NULL,
@@ -96,7 +96,7 @@ type Vote struct {
 
 func (v Vote) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS votes (
-		id serial PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY,
 		hash TEXT UNIQUE NOT NULL,
 		candidates json NOT NULL
 	);`

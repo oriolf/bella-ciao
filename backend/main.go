@@ -59,6 +59,7 @@ func handler(
 		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
+		// TODO log query
 		token, claims, err := tokenFunc(r)
 		if err != nil {
 			log.Println("Error validating token:", err)
