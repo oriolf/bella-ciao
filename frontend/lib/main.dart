@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:bella_ciao/api.dart';
 
 void main() {
@@ -8,27 +9,41 @@ void main() {
 class BellaCiao extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Bella Ciao',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => JWT()),
+      ],
+      child: Consumer<JWT>(
+        builder: (context, jwt, _) {
+          return MaterialApp(
+            title: 'Bella Ciao',
+            theme: ThemeData(
+              primarySwatch: Colors.blue,
+              visualDensity: VisualDensity.adaptivePlatformDensity,
+            ),
+            home: HomePage(jwt: jwt),
+          );
+        },
       ),
-      home: HomePage(),
     );
   }
 }
 
 class Page extends StatelessWidget {
-  Page({this.title, this.body});
+  Page({this.title, this.body, this.jwt});
 
   final String title;
   final Widget body;
+  final JWT jwt;
 
   Function _navigate(BuildContext context, Function builder) {
     return () {
       Navigator.of(context).pop();
-      Navigator.of(context).push(MaterialPageRoute(builder: builder));
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (context) => ChangeNotifierProvider.value(
+                value: jwt,
+                child: builder(context),
+              )));
     };
   }
 
@@ -36,26 +51,35 @@ class Page extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
+        title: Text(title + (jwt.user != null ? " logged" : "")),
       ),
       drawer: Drawer(
         child: ListView(children: <Widget>[
           ListTile(
             leading: Icon(Icons.home),
             title: Text("Inici"),
-            onTap: _navigate(context, (BuildContext context) => HomePage()),
+            onTap: _navigate(
+                context, (BuildContext context) => HomePage(jwt: jwt)),
           ),
           ListTile(
             leading: Icon(Icons.question_answer),
             title: Text("Preguntes freqüents"),
-            onTap: _navigate(context, (BuildContext context) => FAQPage()),
+            onTap:
+                _navigate(context, (BuildContext context) => FAQPage(jwt: jwt)),
           ),
           ListTile(
             leading: Icon(Icons.people),
             title: Text("Candidatures"),
-            onTap:
-                _navigate(context, (BuildContext context) => CandidatesPage()),
+            onTap: _navigate(
+                context, (BuildContext context) => CandidatesPage(jwt: jwt)),
           ),
+          ListTile(
+              leading: Icon(Icons.exit_to_app),
+              title: Text("Surt"),
+              onTap: () {
+                Provider.of<JWT>(context, listen: false).invalidateUser();
+                Navigator.of(context).pop();
+              }),
         ]),
       ),
       body: SingleChildScrollView(
@@ -69,15 +93,26 @@ class Page extends StatelessWidget {
 }
 
 class HomePage extends StatelessWidget {
+  HomePage({this.jwt});
+
+  final JWT jwt;
+
   @override
   Widget build(BuildContext context) {
+    var children = <Widget>[
+      LoginForm(),
+    ];
+    if (jwt.user != null) {
+      children = <Widget>[
+        Center(child: Text("You are logged in!")),
+      ];
+    }
     return Page(
+      jwt: jwt,
       title: "Inici",
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LoginForm(),
-        ],
+        children: children,
       ),
     );
   }
@@ -154,12 +189,14 @@ class _LoginFormState extends State<LoginForm> {
         });
   }
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton(BuildContext context) {
     return FlatButton(
       child: Text(_title),
       color: Colors.blue,
       textColor: Colors.white,
-      onPressed: _login,
+      onPressed: () {
+        _login(context);
+      },
     );
   }
 
@@ -175,7 +212,7 @@ class _LoginFormState extends State<LoginForm> {
     );
   }
 
-  _login() async {
+  _login(BuildContext context) async {
     if (_formKey.currentState.validate()) {
       setState(() {
         _errorText = "";
@@ -193,10 +230,18 @@ class _LoginFormState extends State<LoginForm> {
         var user = await API.login(
             _idController.value.text, _passwordController.value.text);
 
-        if (user == null) {
-          setState(() {
-            _errorText = "Could not log in";
-          });
+        try {
+          var jwt = Provider.of<JWT>(context, listen: false);
+          if (user == null) {
+            setState(() {
+              _errorText = "Could not log in";
+            });
+            jwt.invalidateUser();
+          } else {
+            jwt.updateUser(user);
+          }
+        } catch (e) {
+          print("CATCHED: $e");
         }
       }
     }
@@ -217,11 +262,11 @@ class _LoginFormState extends State<LoginForm> {
       children.add(SizedBox(height: 10));
       children.add(_buildNameInput());
       children.add(Text(_errorText));
-      children.add(_buildSubmitButton());
+      children.add(_buildSubmitButton(context));
     } else {
       children.add(Text(_errorText));
       children.add(Row(children: <Widget>[
-        _buildSubmitButton(),
+        _buildSubmitButton(context),
         _buildRegisterButton(),
       ]));
     }
@@ -246,6 +291,9 @@ class FAQ {
 }
 
 class FAQPage extends StatelessWidget {
+  FAQPage({this.jwt});
+
+  final JWT jwt;
   final List<FAQ> qas = [
     FAQ(question: "Question one", answer: "Answer one"),
     FAQ(question: "Question two", answer: "Answer two"),
@@ -268,6 +316,7 @@ class FAQPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Page(
+      jwt: jwt,
       title: "FAQ",
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -278,9 +327,32 @@ class FAQPage extends StatelessWidget {
 }
 
 class CandidatesPage extends StatelessWidget {
+  CandidatesPage({this.jwt});
+
+  final JWT jwt;
+
   @override
   Widget build(BuildContext context) {
     return Page(
-        title: "Candidatures", body: Center(child: Text("Candidatures")));
+      jwt: jwt,
+      title: "Candidatures",
+      body: Center(child: Text("Candidatures")),
+    );
+  }
+}
+
+class JWT with ChangeNotifier {
+  User _user;
+
+  User get user => _user;
+
+  updateUser(User u) {
+    _user = u;
+    notifyListeners();
+  }
+
+  invalidateUser() {
+    _user = null;
+    notifyListeners();
   }
 }
