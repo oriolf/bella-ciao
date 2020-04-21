@@ -1,117 +1,168 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(BellaCiao());
 }
 
-class MyApp extends StatelessWidget {
-  // This widget is the root of your application.
+class BellaCiao extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Bella Ciao',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // Try running your application with "flutter run". You'll see the
-        // application has a blue toolbar. Then, without quitting the app, try
-        // changing the primarySwatch below to Colors.green and then invoke
-        // "hot reload" (press "r" in the console where you ran "flutter run",
-        // or simply save your changes to "hot reload" in a Flutter IDE).
-        // Notice that the counter didn't reset back to zero; the application
-        // is not restarted.
         primarySwatch: Colors.blue,
-        // This makes the visual density adapt to the platform that you run
-        // the app on. For desktop platforms, the controls will be smaller and
-        // closer together (more dense) than on mobile platforms.
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: HomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  MyHomePage({Key key, this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+class Page extends StatelessWidget {
+  Page({this.title, this.body});
 
   final String title;
+  final Widget body;
 
-  @override
-  _MyHomePageState createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  Function _navigate(BuildContext context, Function builder) {
+    return () {
+      Navigator.of(context).pop();
+      Navigator.of(context).push(MaterialPageRoute(builder: builder));
+    };
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text(title),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Invoke "debug painting" (press "p" in the console, choose the
-          // "Toggle Debug Paint" action from the Flutter Inspector in Android
-          // Studio, or the "Toggle Debug Paint" command in Visual Studio Code)
-          // to see the wireframe for each widget.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
+      drawer: Drawer(
+        child: ListView(children: <Widget>[
+          ListTile(
+            leading: Icon(Icons.home),
+            title: Text("Inici"),
+            onTap: _navigate(context, (BuildContext context) => HomePage()),
+          ),
+          ListTile(
+            leading: Icon(Icons.question_answer),
+            title: Text("Preguntes freqüents"),
+            onTap: _navigate(context, (BuildContext context) => FAQPage()),
+          ),
+          ListTile(
+            leading: Icon(Icons.people),
+            title: Text("Candidatures"),
+            onTap:
+                _navigate(context, (BuildContext context) => CandidatesPage()),
+          ),
+        ]),
+      ),
+      body: SingleChildScrollView(
+        child: Container(
+          margin: EdgeInsets.all(40),
+          child: body,
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  _login() {
+    print("Logging in with ID ${_idController.value.text} and password ${_passwordController.value.text}");
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    var _idInput = TextField(
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: "ID",
+      ),
+      controller: _idController,
+    );
+    var _passwordInput = TextField(
+      obscureText: true,
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: "Password",
+      ),
+      controller: _passwordController,
+    );
+    var _submitButton = FlatButton(child: Text("Log in"), color: Colors.blue, textColor: Colors.white, onPressed: _login);
+    return Page(
+      title: "Inici",
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            child: Container(
+              margin: EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text("Login", style: Theme.of(context).textTheme.headline4),
+                  SizedBox(height: 10),
+                  _idInput,
+                  SizedBox(height: 10),
+                  _passwordInput,
+                  SizedBox(height: 10),
+                  _submitButton,
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class FAQ {
+  FAQ({this.question, this.answer});
+  final String question, answer;
+}
+
+class FAQPage extends StatelessWidget {
+  final List<FAQ> qas = [
+    FAQ(question: "Question one", answer: "Answer one"),
+    FAQ(question: "Question two", answer: "Answer two"),
+    FAQ(question: "Question three", answer: "Answer three"),
+    FAQ(question: "Question four", answer: "Answer four"),
+  ];
+
+  Widget _faq(BuildContext context, FAQ f) {
+    return Container(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(f.question, style: Theme.of(context).textTheme.headline4),
+          Text(f.answer),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Page(
+      title: "FAQ",
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: qas.map((x) => _faq(context, x)).toList(),
+      ),
+    );
+  }
+}
+
+class CandidatesPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Page(
+        title: "Candidatures", body: Center(child: Text("Candidatures")));
   }
 }
