@@ -15,6 +15,9 @@ const dbfile = "db.db"
 func main() {
 	initDB()
 
+	http.HandleFunc("/initialized", handler(NoToken, noParams, Initialized))
+	http.HandleFunc("/initialize", handler(NoToken, GetInitializeParams, Initialize))
+
 	http.HandleFunc("/auth/register", handler(NoToken, GetRegisterParams, Register))
 	http.HandleFunc("/auth/login", handler(NoToken, GetLoginParams, Login))
 	http.HandleFunc("/auth/refresh", handler(UserToken, noParams, Refresh))

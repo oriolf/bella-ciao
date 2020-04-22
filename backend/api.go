@@ -4,10 +4,31 @@ import (
 	"database/sql"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 )
+
+type initializeParams struct {
+	Admin    registerParams `json:"admin"`
+	Election electionParams `json:"election"`
+}
+
+type electionParams struct {
+	Name          string    `json:"name"`
+	Start         time.Time `json:"start"`
+	End           time.Time `json:"end"`
+	CountType     string    `json:"count_type"`
+	MaxCandidates int       `json:"max_candidates"`
+	MinCandidates int       `json:"min_candidates"`
+}
+
+type registerParams struct {
+	Name     string `json:"name"`
+	UniqueID string `json:"unique_id"`
+	Password string `json:"password"`
+}
 
 func NoToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(r)
@@ -62,10 +83,73 @@ func AdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
-type registerParams struct {
-	Name     string `json:"name"`
-	UniqueID string `json:"unique_id"`
-	Password string `json:"password"`
+func Initialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	count, err := countElections(db)
+	if err != nil {
+		return err
+	}
+	if err != nil || count > 0 {
+		return errors.New("already initialized")
+	}
+
+	return nil // only returns OK if not initialized
+}
+
+func GetInitializeParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+	var params initializeParams
+	if err := GetParams(r, &params); err != nil {
+		return nil, err
+	}
+
+	if invalidRegisterParams(params.Admin) || invalidElectionParams(params.Election) {
+		return nil, errors.New("needed data missing")
+	}
+
+	return params, nil
+}
+
+func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	// TODO if a user admin or an election already exist, return error
+	count, err := countElections(db)
+	if err != nil || count > 0 {
+		return errors.New("an election already exists")
+	}
+
+	count, err = countAdminUsers(db)
+	if err != nil || count > 0 {
+		return errors.New("an admin user already exists")
+	}
+
+	params, ok := p.(initializeParams)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	admin := params.Admin
+	password, salt, err := GetSaltAndHashPassword(admin.Password)
+	if err != nil {
+		return errors.Wrap(err, "could not get salt or hash password")
+	}
+
+	user := User{Name: admin.Name, UniqueID: admin.UniqueID, Password: password, Salt: salt}
+	if err := RegisterUserAdmin(db, user); err != nil {
+		return errors.Wrap(err, "could not register user in db")
+	}
+
+	e := params.Election
+	election := Election{
+		Name:          e.Name,
+		Start:         e.Start,
+		End:           e.End,
+		CountType:     e.CountType,
+		MinCandidates: e.MinCandidates,
+		MaxCandidates: e.MaxCandidates,
+	}
+	if err := createElection(db, election); err != nil {
+		return errors.Wrap(err, "could not create election")
+	}
+
+	return nil
 }
 
 func GetRegisterParams(r *http.Request, token *jwt.Token) (interface{}, error) {
@@ -74,8 +158,7 @@ func GetRegisterParams(r *http.Request, token *jwt.Token) (interface{}, error) {
 		return nil, err
 	}
 
-	// TODO unique ID validates one of the allowed types
-	if params.Name == "" || params.UniqueID == "" || len(params.Password) < MIN_PASSWORD_LENGTH {
+	if invalidRegisterParams(params) {
 		return nil, errors.New("needed data missing")
 	}
 
@@ -88,14 +171,9 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 		return errors.New("wrong params model")
 	}
 
-	salt, err := SafeID()
+	password, salt, err := GetSaltAndHashPassword(params.Password)
 	if err != nil {
-		return errors.Wrap(err, "could not generate salt")
-	}
-
-	password, err := HashPassword(params.Password, salt)
-	if err != nil {
-		return errors.Wrap(err, "could not hash password")
+		return errors.Wrap(err, "could not get salt or hash password")
 	}
 
 	user := User{Name: params.Name, UniqueID: params.UniqueID, Password: password, Salt: salt}

@@ -5,6 +5,11 @@ import 'package:http/http.dart' as http;
 class API {
   static final url = "http://localhost:9876/";
 
+  static Future<bool> checkInitialized() async {
+    var res = await http.get(url + "initialized");
+    return res.statusCode != 200;
+  }
+
   static Future<bool> register(
       String name, String uniqueID, String password) async {
     var request = {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:provider/provider.dart';
 import 'package:bella_ciao/api.dart';
 
@@ -13,19 +14,59 @@ class BellaCiao extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => JWT()),
       ],
-      child: Consumer<JWT>(
-        builder: (context, jwt, _) {
-          return MaterialApp(
-            title: 'Bella Ciao',
-            theme: ThemeData(
-              primarySwatch: Colors.blue,
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-            ),
-            home: HomePage(jwt: jwt),
-          );
-        },
-      ),
+      child: Consumer<JWT>(builder: (context, jwt, _) {
+        return MaterialApp(
+          title: 'Bella Ciao',
+          theme: ThemeData(
+            primarySwatch: Colors.blue,
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+          ),
+          home: Stack(
+            children: <Widget>[
+              HomePage(jwt: jwt),
+              CheckInitialized(),
+            ],
+          ),
+        );
+      }),
     );
+  }
+}
+
+class CheckInitialized extends StatefulWidget {
+  @override
+  _CheckInitializedState createState() => _CheckInitializedState();
+}
+
+class _CheckInitializedState extends State<CheckInitialized> {
+  bool _alreadyChecked = false;
+
+  _checkInitialized(BuildContext context) async {
+    setState(() {
+      _alreadyChecked = true;
+    });
+    var jwt = Provider.of<JWT>(context, listen: false);
+    var initialized = await API.checkInitialized();
+    if (!initialized) {
+      Navigator.of(context).pop();
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ChangeNotifierProvider.value(
+            value: jwt,
+            child: CandidatesPage(jwt: jwt),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_alreadyChecked) {
+      _checkInitialized(context);
+    }
+
+    return Container();
   }
 }
 
@@ -73,13 +114,14 @@ class Page extends StatelessWidget {
             onTap: _navigate(
                 context, (BuildContext context) => CandidatesPage(jwt: jwt)),
           ),
-          ListTile(
-              leading: Icon(Icons.exit_to_app),
-              title: Text("Surt"),
-              onTap: () {
-                Provider.of<JWT>(context, listen: false).invalidateUser();
-                Navigator.of(context).pop();
-              }),
+          if (jwt.user != null)
+            ListTile(
+                leading: Icon(Icons.exit_to_app),
+                title: Text("Surt"),
+                onTap: () {
+                  Provider.of<JWT>(context, listen: false).invalidateUser();
+                  Navigator.of(context).pop();
+                }),
         ]),
       ),
       body: SingleChildScrollView(
@@ -99,20 +141,15 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var children = <Widget>[
-      LoginForm(),
-    ];
-    if (jwt.user != null) {
-      children = <Widget>[
-        Center(child: Text("You are logged in!")),
-      ];
-    }
     return Page(
       jwt: jwt,
       title: "Inici",
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: children,
+        children: <Widget>[
+          if (jwt.user == null) LoginForm(),
+          if (jwt.user != null) Center(child: Text("You are logged in!")),
+        ],
       ),
     );
   }
@@ -230,18 +267,14 @@ class _LoginFormState extends State<LoginForm> {
         var user = await API.login(
             _idController.value.text, _passwordController.value.text);
 
-        try {
-          var jwt = Provider.of<JWT>(context, listen: false);
-          if (user == null) {
-            setState(() {
-              _errorText = "Could not log in";
-            });
-            jwt.invalidateUser();
-          } else {
-            jwt.updateUser(user);
-          }
-        } catch (e) {
-          print("CATCHED: $e");
+        var jwt = Provider.of<JWT>(context, listen: false);
+        if (user == null) {
+          setState(() {
+            _errorText = "Could not log in";
+          });
+          jwt.invalidateUser();
+        } else {
+          jwt.updateUser(user);
         }
       }
     }
@@ -249,27 +282,6 @@ class _LoginFormState extends State<LoginForm> {
 
   @override
   Widget build(BuildContext context) {
-    var children = <Widget>[
-      Text(_title, style: Theme.of(context).textTheme.headline4),
-      SizedBox(height: 10),
-      _buildIdInput(),
-      SizedBox(height: 10),
-      _buildPasswordInput(),
-      SizedBox(height: 10),
-    ];
-    if (_registering) {
-      children.add(_buildPasswordConfirmInput());
-      children.add(SizedBox(height: 10));
-      children.add(_buildNameInput());
-      children.add(Text(_errorText));
-      children.add(_buildSubmitButton(context));
-    } else {
-      children.add(Text(_errorText));
-      children.add(Row(children: <Widget>[
-        _buildSubmitButton(context),
-        _buildRegisterButton(),
-      ]));
-    }
     return Card(
       child: Container(
         margin: EdgeInsets.all(20),
@@ -277,7 +289,25 @@ class _LoginFormState extends State<LoginForm> {
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: children,
+            children: <Widget>[
+              Text(_title, style: Theme.of(context).textTheme.headline4),
+              SizedBox(height: 10),
+              _buildIdInput(),
+              SizedBox(height: 10),
+              _buildPasswordInput(),
+              SizedBox(height: 10),
+              if (_registering) _buildPasswordConfirmInput(),
+              if (_registering) SizedBox(height: 10),
+              if (_registering) _buildNameInput(),
+              if (_registering) Text(_errorText),
+              if (_registering) _buildSubmitButton(context),
+              if (!_registering) Text(_errorText),
+              if (!_registering)
+                Row(children: <Widget>[
+                  _buildSubmitButton(context),
+                  _buildRegisterButton(),
+                ]),
+            ],
           ),
         ),
       ),

@@ -47,6 +47,7 @@ type Election struct {
 	End    time.Time `json:"end"`
 	Public bool      `json:"public"`
 
+	// TODO add a type, not a simple string
 	CountType     string `json:"count_type"`
 	MaxCandidates int    `json:"max_candidates"`
 	MinCandidates int    `json:"min_candidates"`
@@ -63,7 +64,7 @@ func (e Election) CreateTableQuery() string {
 		public BOOLEAN NOT NULL,
 		count_type TEXT NOT NULL,
 		max_candidates INTEGER NOT NULL CHECK (max_candidates > 0),
-		min_candidates INTEGER NOT NULL CHECK (min_candidates > 0),
+		min_candidates INTEGER NOT NULL,
 		CHECK (max_candidates >= min_candidates)
 	);`
 }

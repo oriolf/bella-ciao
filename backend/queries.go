@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -47,6 +48,29 @@ func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 	}
 
 	return res, nil
+}
+
+func countElections(db *sql.DB) (int, error) { return countDB(db, "SELECT COUNT(1) FROM elections;") }
+func countAdminUsers(db *sql.DB) (int, error) {
+	return countDB(db, "SELECT COUNT(1) FROM users WHERE role LIKE ?;", ROLE_ADMIN)
+}
+
+func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
+	results, err := queryDB(db, scanCount, query, args...)
+	if err != nil {
+		return 0, errors.Wrap(err, "error querying count")
+	}
+
+	if len(results) != 1 {
+		return 0, errors.New("unexpected number of count results")
+	}
+
+	count, ok := results[0].(int)
+	if !ok {
+		return 0, errors.New("unexpected count type")
+	}
+
+	return count, nil
 }
 
 func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
@@ -107,9 +131,18 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 	return c, err
 }
 
-func RegisterUser(db *sql.DB, user User) error {
-	_, err := db.Exec("INSERT INTO users (name, unique_id, password, salt, role) VALUES (?, ?, ?, ?, 'none');",
-		user.Name, user.UniqueID, user.Password, user.Salt)
+func scanCount(rows *sql.Rows) (interface{}, error) {
+	var c int
+	err := rows.Scan(&c)
+	return c, err
+}
+
+func RegisterUser(db *sql.DB, user User) error      { return registerUser(db, user, ROLE_NONE) }
+func RegisterUserAdmin(db *sql.DB, user User) error { return registerUser(db, user, ROLE_ADMIN) }
+
+func registerUser(db *sql.DB, user User, role string) error {
+	query := fmt.Sprintf("INSERT INTO users (name, unique_id, password, salt, role) VALUES (?, ?, ?, ?, '%s');", role)
+	_, err := db.Exec(query, user.Name, user.UniqueID, user.Password, user.Salt)
 	return err
 }
 
@@ -118,4 +151,11 @@ func GetUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
 		&user.ID, &user.Name, &user.Password, &user.Salt, &user.Role)
 	user.UniqueID = uniqueID
 	return user, err
+}
+
+func createElection(db *sql.DB, e Election) error {
+	query := `INSERT INTO elections (name, date_start, date_end, public, count_type, max_candidates, min_candidates) 
+              VALUES (?, ?, ?, ?, ?, ?, ?);`
+	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountType, e.MaxCandidates, e.MinCandidates)
+	return err
 }

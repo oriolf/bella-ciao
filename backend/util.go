@@ -29,6 +29,20 @@ func GetParams(r *http.Request, model interface{}) error {
 	return nil
 }
 
+func GetSaltAndHashPassword(pass string) (string, string, error) {
+	salt, err := SafeID()
+	if err != nil {
+		return "", "", errors.Wrap(err, "could not generate salt")
+	}
+
+	password, err := HashPassword(pass, salt)
+	if err != nil {
+		return "", "", errors.Wrap(err, "could not hash password")
+	}
+
+	return password, salt, nil
+}
+
 func SafeID() (string, error) {
 	b := make([]byte, 32)
 	n, err := rand.Read(b)
@@ -90,4 +104,22 @@ func GenerateToken(user User) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	return token.SignedString(JWTKey)
+}
+
+// TODO take into account user preferences
+func invalidCountType(countType string) bool {
+	return countType != COUNT_BORDA && countType != COUNT_DOWDALL
+}
+
+func invalidRegisterParams(params registerParams) bool {
+	// TODO unique ID validates one of the allowed types
+	return params.Name == "" || params.UniqueID == "" || len(params.Password) < MIN_PASSWORD_LENGTH
+}
+
+func invalidElectionParams(params electionParams) bool {
+	return params.Name == "" ||
+		params.Start.IsZero() || params.End.IsZero() ||
+		params.Start.After(params.End) || !params.End.Before(params.Start) ||
+		invalidCountType(params.CountType) ||
+		params.MaxCandidates == 0 || params.MinCandidates > params.MaxCandidates
 }
