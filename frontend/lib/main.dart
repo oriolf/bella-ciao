@@ -354,17 +354,53 @@ class FAQPage extends StatelessWidget {
   }
 }
 
-class CandidatesPage extends StatelessWidget {
+class CandidatesPage extends StatefulWidget {
   CandidatesPage({this.jwt});
+  final JWT jwt;
+
+  @override
+  _CandidatesPageState createState() => _CandidatesPageState(jwt: jwt);
+}
+
+class _CandidatesPageState extends State<CandidatesPage> {
+  _CandidatesPageState({this.jwt});
 
   final JWT jwt;
+  List<Candidate> candidates = [];
+
+  void initState() {
+    super.initState();
+    _getCandidates();
+  }
+
+  _getCandidates() async {
+    var cands = await API.getCandidates();
+    setState(() {
+      candidates = cands;
+    });
+  }
+
+  Widget _candidate(Candidate c) {
+    return Container(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(c.name, style: Theme.of(context).textTheme.headline4),
+          Text(c.presentation),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Page(
       jwt: jwt,
       title: "Candidatures",
-      body: Center(child: Text("Candidatures")),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: candidates.map((x) => _candidate(x)).toList(),
+      ),
     );
   }
 }

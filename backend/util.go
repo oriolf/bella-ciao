@@ -87,7 +87,7 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 		return errors.Wrap(err, "could not marshal result")
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if _, err := w.Write(js); err != nil {
 		return errors.Wrap(err, "could not write result")
 	}

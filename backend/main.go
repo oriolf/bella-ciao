@@ -29,6 +29,8 @@ func main() {
 	// http.HandleFunc("/elections/delete", handler(adminToken, electionParams, deleteElection))
 	// http.HandleFunc("/elections/vote", handler(validatedToken, voteParams, vote))
 
+	http.HandleFunc("/candidates/get", handler(NoToken, noParams, GetCandidatesHandler))
+
 	log.Println("Start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
 }
@@ -62,7 +64,7 @@ func handler(
 		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		// TODO log query
+		log.Println("Received petition to", r.URL.Path)
 		token, claims, err := tokenFunc(r)
 		if err != nil {
 			log.Println("Error validating token:", err)

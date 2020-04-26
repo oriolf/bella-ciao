@@ -249,3 +249,16 @@ func GetElectionsHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 
 	return nil
 }
+
+func GetCandidatesHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+	candidates, err := GetCandidates(db, 1)
+	if err != nil {
+		return errors.Wrap(err, "could not get candidates")
+	}
+
+	if err := WriteResult(w, candidates); err != nil {
+		return errors.Wrap(err, "could not write response")
+	}
+
+	return nil
+}

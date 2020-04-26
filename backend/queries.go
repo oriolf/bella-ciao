@@ -119,6 +119,11 @@ func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	return elections, nil
 }
 
+func GetCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
+	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
+	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
+}
+
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
 	err := rows.Scan(&e.ID, &e.Name, &e.Start, &e.End, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)

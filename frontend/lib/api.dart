@@ -64,6 +64,16 @@ class API {
     var jwt = parseJwt(jsonDecode(res.body));
     return User.fromJson(jwt);
   }
+
+  static Future<List<Candidate>> getCandidates() async {
+    var r = await http.get(url + "candidates/get");
+    var res = jsonDecode(r.body);
+    List<Candidate> cands = [];
+    res.forEach((x) {
+      cands.add(Candidate.fromJson(x));
+    });
+    return cands;
+  }
 }
 
 class User {
@@ -79,6 +89,21 @@ class User {
         name = json["name"],
         uniqueID = json["unique_id"],
         role = json["role"];
+}
+
+class Candidate {
+  Candidate({this.id, this.name, this.presentation, this.image});
+
+  int id;
+  String name;
+  String presentation;
+  String image;
+
+  Candidate.fromJson(Map<String, dynamic> json)
+      : id = json["id"],
+        name = json["name"],
+        presentation = json["presentation"],
+        image = json["image"];
 }
 
 Map<String, dynamic> parseJwt(String token) {
