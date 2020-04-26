@@ -29,6 +29,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   http: ^0.12.0+4
   provider: ^4.0.5
+  datetime_picker_formfield: ^1.0.0
 
 dev_dependencies:
   flutter_test:

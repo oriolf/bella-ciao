@@ -119,7 +119,7 @@ func invalidRegisterParams(params registerParams) bool {
 func invalidElectionParams(params electionParams) bool {
 	return params.Name == "" ||
 		params.Start.IsZero() || params.End.IsZero() ||
-		params.Start.After(params.End) || !params.End.Before(params.Start) ||
+		params.Start.After(params.End) || params.End.Before(params.Start) ||
 		invalidCountType(params.CountType) ||
 		params.MaxCandidates == 0 || params.MinCandidates > params.MaxCandidates
 }

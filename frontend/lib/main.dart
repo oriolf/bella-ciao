@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:bella_ciao/api.dart';
+import 'package:intl/intl.dart';
+import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 
 void main() {
   runApp(BellaCiao());
@@ -53,7 +55,7 @@ class _CheckInitializedState extends State<CheckInitialized> {
         MaterialPageRoute(
           builder: (context) => ChangeNotifierProvider.value(
             value: jwt,
-            child: CandidatesPage(jwt: jwt),
+            child: InitializePage(jwt: jwt),
           ),
         ),
       );
@@ -287,17 +289,13 @@ class _LoginFormState extends State<LoginForm> {
         margin: EdgeInsets.all(20),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: SpacedColumn(
+            padding: 10,
             children: <Widget>[
               Text(_title, style: Theme.of(context).textTheme.headline4),
-              SizedBox(height: 10),
               _buildIdInput(),
-              SizedBox(height: 10),
               _buildPasswordInput(),
-              SizedBox(height: 10),
               if (_registering) _buildPasswordConfirmInput(),
-              if (_registering) SizedBox(height: 10),
               if (_registering) _buildNameInput(),
               if (_registering) Text(_errorText),
               if (_registering) _buildSubmitButton(context),
@@ -368,6 +366,265 @@ class CandidatesPage extends StatelessWidget {
       title: "Candidatures",
       body: Center(child: Text("Candidatures")),
     );
+  }
+}
+
+class InitializePage extends StatelessWidget {
+  InitializePage({this.jwt});
+
+  final JWT jwt;
+
+  @override
+  Widget build(BuildContext context) {
+    return Page(
+      jwt: jwt,
+      title: "Inici",
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          InitializeForm(),
+        ],
+      ),
+    );
+  }
+}
+
+class InitializeForm extends StatefulWidget {
+  @override
+  _InitializeFormState createState() => _InitializeFormState();
+}
+
+class _InitializeFormState extends State<InitializeForm> {
+  final _formKey = GlobalKey<FormState>();
+  final _idController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _passwordConfirmController = TextEditingController();
+  final _electionNameController = TextEditingController();
+  final _minCandidatesController = TextEditingController();
+  final _maxCandidatesController = TextEditingController();
+  DateTime _start;
+  DateTime _end;
+  String _errorText = "";
+
+  Widget _buildIdInput() {
+    return _buildTextInput(_idController, "ID");
+  }
+
+  Widget _buildNameInput() {
+    return _buildTextInput(_nameController, "Name");
+  }
+
+  Widget _buildElectionNameInput() {
+    return _buildTextInput(_electionNameController, "Name");
+  }
+
+  Widget _buildTextInput(TextEditingController controller, String name) {
+    return TextFormField(
+        controller: controller,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: name,
+        ),
+        validator: (value) {
+          if (value.length > 0) {
+            return null;
+          }
+          return "$name is required";
+        });
+  }
+
+  Widget _buildMinCandidatesInput() {
+    return _buildNumericInput(
+        _minCandidatesController, "Minimum of candidates");
+  }
+
+  // TODO required max >= min
+  Widget _buildMaxCandidatesInput() {
+    return _buildNumericInput(
+        _maxCandidatesController, "Maximum of candidates");
+  }
+
+  Widget _buildNumericInput(TextEditingController controller, String name) {
+    return TextFormField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        inputFormatters: <TextInputFormatter>[
+          WhitelistingTextInputFormatter.digitsOnly
+        ],
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: name,
+        ),
+        validator: (value) {
+          if (value.length > 0) {
+            return null;
+          }
+          return "$name is required";
+        });
+  }
+
+  Widget _buildPasswordInput() {
+    return TextFormField(
+        controller: _passwordController,
+        obscureText: true,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: "Password",
+        ),
+        validator: (value) {
+          if (value.length > 4) {
+            // TODO use the same as MIN_PASSWORD_LENGTH set in backend
+            return null;
+          }
+          return "Password must be at least 4 characters long";
+        });
+  }
+
+  Widget _buildPasswordConfirmInput() {
+    return TextFormField(
+        controller: _passwordConfirmController,
+        obscureText: true,
+        decoration: InputDecoration(
+          border: OutlineInputBorder(),
+          hintText: "Confirm password",
+        ),
+        validator: (value) {
+          if (value == _passwordController.value.text) {
+            return null;
+          }
+          return "Passwords must match";
+        });
+  }
+
+  Widget _buildStartInput() {
+    return _buildDateInput("Start date", (val) {
+      setState(() {
+        _start = val;
+      });
+    });
+  }
+
+  Widget _buildEndInput() {
+    return _buildDateInput("End date", (val) {
+      setState(() {
+        _end = val;
+      });
+    });
+  }
+
+  Widget _buildDateInput(String name, Function f) {
+    return DateTimeField(
+      validator: (value) {
+        if (value != null) {
+          return null;
+        }
+        return "$name is required";
+      },
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: "$name",
+      ),
+      format: DateFormat("yyyy-MM-dd HH:mm"),
+      onShowPicker: (context, currentValue) async {
+        final date = await showDatePicker(
+            context: context,
+            firstDate: DateTime(1900),
+            initialDate: currentValue ?? DateTime.now(),
+            lastDate: DateTime(2100));
+        DateTime value;
+        if (date != null) {
+          final time = await showTimePicker(
+            context: context,
+            initialTime: TimeOfDay.fromDateTime(currentValue ?? DateTime.now()),
+          );
+          value = DateTimeField.combine(date, time);
+        } else {
+          value = currentValue;
+        }
+        f(value);
+        return value;
+      },
+    );
+  }
+
+  Widget _buildSubmitButton(BuildContext context) {
+    return FlatButton(
+      child: Text("Initialize"),
+      color: Colors.blue,
+      textColor: Colors.white,
+      onPressed: () {
+        _initialize(context);
+      },
+    );
+  }
+
+  _initialize(BuildContext context) async {
+    if (_formKey.currentState.validate()) {
+      setState(() {
+        _errorText = "";
+      });
+      var res = await API.initialize(
+        _nameController.value.text,
+        _idController.value.text,
+        _passwordController.value.text,
+        _electionNameController.value.text,
+        _start,
+        _end,
+        int.parse(_minCandidatesController.value.text),
+        int.parse(_maxCandidatesController.value.text),
+      );
+
+      if (!res) {
+        setState(() {
+          _errorText = "Could not initialize";
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: SpacedColumn(
+        padding: 10,
+        children: <Widget>[
+          Text("Initialize", style: Theme.of(context).textTheme.headline4),
+          Text("Admin user data", style: Theme.of(context).textTheme.headline5),
+          _buildIdInput(),
+          _buildPasswordInput(),
+          _buildPasswordConfirmInput(),
+          _buildNameInput(),
+          Text("Election data", style: Theme.of(context).textTheme.headline6),
+          _buildElectionNameInput(),
+          _buildStartInput(),
+          _buildEndInput(),
+          _buildMinCandidatesInput(),
+          _buildMaxCandidatesInput(),
+          Text(_errorText),
+          _buildSubmitButton(context),
+        ],
+      ),
+    );
+  }
+}
+
+class SpacedColumn extends StatelessWidget {
+  SpacedColumn({this.children, this.padding});
+
+  final List<Widget> children;
+  final double padding;
+
+  @override
+  Widget build(BuildContext context) {
+    var _children = <Widget>[];
+    for (var child in children) {
+      _children.add(child);
+      _children.add(SizedBox(height: padding));
+    }
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start, children: _children);
   }
 }
 

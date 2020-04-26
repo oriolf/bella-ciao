@@ -21,6 +21,37 @@ class API {
     return res.statusCode == 200;
   }
 
+  static Future<bool> initialize(
+    String name,
+    String uniqueID,
+    String password,
+    String electionName,
+    DateTime start,
+    DateTime end,
+    int minCandidates,
+    int maxCandidates,
+  ) async {
+    print("START: ${start.toUtc().toIso8601String()}");
+    var request = {
+      "admin": {
+        "name": name,
+        "unique_id": uniqueID,
+        "password": password,
+      },
+      "election": {
+        "name": electionName,
+        "start": start.toUtc().toIso8601String(),
+        "end": end.toUtc().toIso8601String(),
+        // TODO allow selecting from backend-supplied list
+        "count_type": "borda",
+        "min_candidates": minCandidates,
+        "max_candidates": maxCandidates,
+      }
+    };
+    var res = await http.post(url + "initialize", body: jsonEncode(request));
+    return res.statusCode == 200;
+  }
+
   static Future<User> login(String uniqueID, String password) async {
     var request = {
       "unique_id": uniqueID,
