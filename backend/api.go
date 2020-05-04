@@ -262,3 +262,36 @@ func GetCandidatesHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, c
 
 	return nil
 }
+
+type candidateParams struct {
+	Name         string
+	Presentation string
+	Image        string
+}
+
+func GetCandidateParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+	var params candidateParams
+	if err := GetParams(r, &params); err != nil {
+		return nil, err
+	}
+
+	if params.Name == "" || params.Presentation == "" {
+		return nil, errors.New("needed data missing")
+	}
+
+	return params, nil
+}
+
+func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	params, ok := p.(candidateParams)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	err := AddCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: params.Image})
+	if err != nil {
+		return errors.Wrap(err, "could not add candidate")
+	}
+
+	return nil
+}

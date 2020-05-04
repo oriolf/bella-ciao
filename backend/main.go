@@ -30,6 +30,7 @@ func main() {
 	// http.HandleFunc("/elections/vote", handler(validatedToken, voteParams, vote))
 
 	http.HandleFunc("/candidates/get", handler(NoToken, noParams, GetCandidatesHandler))
+	http.HandleFunc("/candidates/add", handler(AdminToken, GetCandidateParams, AddCandidateHandler))
 
 	log.Println("Start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
@@ -53,16 +54,19 @@ func handler(
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// TODO remove, should not be necessary if domains are properly set, which they should
 		origin := r.Header.Get("Origin")
 		if origin == "" {
 			origin = "*"
 		}
 
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, PATCH, DELETE")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
 		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
+
+		if r.Method == http.MethodOptions {
+			return
+		}
 
 		log.Println("Received petition to", r.URL.Path)
 		token, claims, err := tokenFunc(r)

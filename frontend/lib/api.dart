@@ -2,16 +2,19 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-class API {
-  static final url = "http://localhost:9876/";
+class BELLA {
+  BELLA._();
+  static final BELLA api = BELLA._();
 
-  static Future<bool> checkInitialized() async {
+  static final url = "http://localhost:9876/";
+  String rawJWT;
+
+  Future<bool> checkInitialized() async {
     var res = await http.get(url + "initialized");
     return res.statusCode != 200;
   }
 
-  static Future<bool> register(
-      String name, String uniqueID, String password) async {
+  Future<bool> register(String name, String uniqueID, String password) async {
     var request = {
       "name": name,
       "unique_id": uniqueID,
@@ -21,7 +24,7 @@ class API {
     return res.statusCode == 200;
   }
 
-  static Future<bool> initialize(
+  Future<bool> initialize(
     String name,
     String uniqueID,
     String password,
@@ -52,7 +55,25 @@ class API {
     return res.statusCode == 200;
   }
 
-  static Future<User> login(String uniqueID, String password) async {
+  Map<String, String> headers() {
+    return {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $rawJWT",
+    };
+  }
+
+  Future<bool> addCandidate(Candidate c) async {
+    var request = {
+      "name": c.name,
+      "presentation": c.presentation,
+      "image": c.image ?? "",
+    };
+    var res = await http.post(url + "candidates/add",
+        body: jsonEncode(request), headers: headers());
+    return res.statusCode == 200;
+  }
+
+  Future<User> login(String uniqueID, String password) async {
     var request = {
       "unique_id": uniqueID,
       "password": password,
@@ -61,11 +82,12 @@ class API {
     if (res.statusCode != 200) {
       return null;
     }
-    var jwt = parseJwt(jsonDecode(res.body));
+    rawJWT = jsonDecode(res.body);
+    var jwt = parseJwt(rawJWT);
     return User.fromJson(jwt);
   }
 
-  static Future<List<Candidate>> getCandidates() async {
+  Future<List<Candidate>> getCandidates() async {
     var r = await http.get(url + "candidates/get");
     var res = jsonDecode(r.body);
     List<Candidate> cands = [];

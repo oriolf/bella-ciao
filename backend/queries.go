@@ -124,6 +124,12 @@ func GetCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
+func AddCandidate(db *sql.DB, c Candidate) error {
+	query := "INSERT INTO candidates (election_id, name, presentation, image) VALUES (1, ?, ?, ?);"
+	_, err := db.Exec(query, c.Name, c.Presentation, c.Image)
+	return err
+}
+
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
 	err := rows.Scan(&e.ID, &e.Name, &e.Start, &e.End, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)

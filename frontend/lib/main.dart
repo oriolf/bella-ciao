@@ -5,6 +5,8 @@ import 'package:bella_ciao/api.dart';
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 
+const ROLE_ADMIN = "admin";
+
 void main() {
   runApp(BellaCiao());
 }
@@ -48,7 +50,7 @@ class _CheckInitializedState extends State<CheckInitialized> {
       _alreadyChecked = true;
     });
     var jwt = Provider.of<JWT>(context, listen: false);
-    var initialized = await API.checkInitialized();
+    var initialized = await BELLA.api.checkInitialized();
     if (!initialized) {
       Navigator.of(context).pop();
       Navigator.of(context).push(
@@ -73,11 +75,12 @@ class _CheckInitializedState extends State<CheckInitialized> {
 }
 
 class Page extends StatelessWidget {
-  Page({this.title, this.body, this.jwt});
+  Page({this.title, this.body, this.jwt, this.floatingActionButton});
 
   final String title;
   final Widget body;
   final JWT jwt;
+  final Widget floatingActionButton;
 
   Function _navigate(BuildContext context, Function builder) {
     return () {
@@ -132,6 +135,7 @@ class Page extends StatelessWidget {
           child: body,
         ),
       ),
+      floatingActionButton: floatingActionButton,
     );
   }
 }
@@ -257,7 +261,7 @@ class _LoginFormState extends State<LoginForm> {
         _errorText = "";
       });
       if (_registering) {
-        var res = await API.register(_nameController.value.text,
+        var res = await BELLA.api.register(_nameController.value.text,
             _idController.value.text, _passwordController.value.text);
 
         if (!res) {
@@ -266,7 +270,7 @@ class _LoginFormState extends State<LoginForm> {
           });
         }
       } else {
-        var user = await API.login(
+        var user = await BELLA.api.login(
             _idController.value.text, _passwordController.value.text);
 
         var jwt = Provider.of<JWT>(context, listen: false);
@@ -367,6 +371,9 @@ class _CandidatesPageState extends State<CandidatesPage> {
 
   final JWT jwt;
   List<Candidate> candidates = [];
+  TextEditingController nameController = new TextEditingController();
+  TextEditingController presentationController = new TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   void initState() {
     super.initState();
@@ -374,10 +381,52 @@ class _CandidatesPageState extends State<CandidatesPage> {
   }
 
   _getCandidates() async {
-    var cands = await API.getCandidates();
+    var cands = await BELLA.api.getCandidates();
     setState(() {
       candidates = cands;
     });
+  }
+
+  _initializeForm() {
+    setState(() {
+      nameController.value =
+          new TextEditingController.fromValue(new TextEditingValue(text: ""))
+              .value;
+      presentationController.value =
+          new TextEditingController.fromValue(new TextEditingValue(text: ""))
+              .value;
+    });
+  }
+
+  _addCandidate() async {
+    _initializeForm();
+    final c = await showDialog<Candidate>(
+      context: context,
+      builder: (BuildContext context) {
+        return NewCandidateDialog(
+            nameController: nameController,
+            presentationController: presentationController);
+      },
+    );
+
+    if (c != null) {
+      try {
+        var res = await BELLA.api.addCandidate(c);
+        if (!res) {
+          throw "HTTP ERROR";
+        }
+      } catch (e) {
+        _showError('Error afegint candidat: $e');
+      }
+      _getCandidates();
+    }
+  }
+
+  _showError(String message) {
+    _scaffoldKey.currentState.showSnackBar(SnackBar(
+      content: Text(message),
+      duration: Duration(seconds: 3),
+    ));
   }
 
   Widget _candidate(Candidate c) {
@@ -394,6 +443,13 @@ class _CandidatesPageState extends State<CandidatesPage> {
 
   @override
   Widget build(BuildContext context) {
+    Widget action;
+    if (jwt.user != null && jwt.user.role == ROLE_ADMIN) {
+      action = FloatingActionButton(
+        child: Icon(Icons.add),
+        onPressed: _addCandidate,
+      );
+    }
     return Page(
       jwt: jwt,
       title: "Candidatures",
@@ -401,6 +457,7 @@ class _CandidatesPageState extends State<CandidatesPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: candidates.map((x) => _candidate(x)).toList(),
       ),
+      floatingActionButton: action,
     );
   }
 }
@@ -600,7 +657,7 @@ class _InitializeFormState extends State<InitializeForm> {
       setState(() {
         _errorText = "";
       });
-      var res = await API.initialize(
+      var res = await BELLA.api.initialize(
         _nameController.value.text,
         _idController.value.text,
         _passwordController.value.text,
@@ -661,6 +718,65 @@ class SpacedColumn extends StatelessWidget {
     }
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start, children: _children);
+  }
+}
+
+class NewCandidateDialog extends StatelessWidget {
+  NewCandidateDialog({this.nameController, this.presentationController});
+
+  final TextEditingController nameController;
+  final TextEditingController presentationController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text("Add candidate"),
+      content: Container(
+        width: 500.0,
+        // TODO may overflow, add scroll
+        child: SpacedColumn(
+          padding: 10,
+          children: <Widget>[
+            // TODO REFACTOR custom textformfield with decoration always set
+            TextFormField(
+              controller: nameController,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: "Name",
+              ),
+            ),
+            TextFormField(
+                controller: presentationController,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: "Presentation",
+                ),
+                keyboardType: TextInputType.multiline,
+                maxLines: 20),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        FlatButton(
+          child: Text('Cancel'),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+        ),
+        FlatButton(
+          child: Text("Add"),
+          onPressed: () {
+            final c = new Candidate(
+                name: nameController.value.text,
+                presentation: presentationController.value.text);
+            nameController.clear();
+            presentationController.clear();
+
+            Navigator.of(context).pop(c);
+          },
+        ),
+      ],
+    );
   }
 }
 
