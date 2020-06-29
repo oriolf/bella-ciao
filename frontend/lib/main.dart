@@ -208,10 +208,65 @@ class HomePageContentAdmin extends StatelessWidget {
 
   final JWT jwt;
 
-// TODO show list of unvalidated users with button to validate or reject with a message; show first users without rejection message
+// TODO implement, show user and files info, also buttons to validate and to reject (with a message)
+  Widget _buildUnvalidatedUser(User x) {
+    return ListTile(title: Text("user ${x.uniqueID}"));
+  }
+
+// TODO show list of unvalidated users with button to validate or reject with a message
+// show first users without rejection message
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text("You are logged in, and you are admin!"));
+    return Container(
+      height: 100,
+      child: AsyncList(
+        builder: _buildUnvalidatedUser,
+        dataFunc: BELLA.api.getUnvalidatedUsers,
+      ),
+    );
+  }
+}
+
+class AsyncList<T> extends StatefulWidget {
+  AsyncList({this.builder, this.dataFunc});
+
+  final Widget Function(T) builder;
+  final Future<List<T>> Function() dataFunc;
+
+  @override
+  _AsyncListState<T> createState() =>
+      _AsyncListState<T>(builder: builder, dataFunc: dataFunc);
+}
+
+class _AsyncListState<T> extends State<AsyncList<T>> {
+  _AsyncListState({this.builder, this.dataFunc});
+
+  final Widget Function(T) builder;
+  final Future<List<T>> Function() dataFunc;
+  List<T> data = [];
+  bool waiting = true;
+
+  void initState() {
+    super.initState();
+    reloadData();
+  }
+
+  reloadData() async {
+    var l = await dataFunc();
+    setState(() {
+      data = l;
+      waiting = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (waiting) {
+      return Center(child: Text("waiting")); // TODO loader
+    }
+    return ListView(
+      children: data.map((x) => builder(x)).toList(),
+    );
   }
 }
 

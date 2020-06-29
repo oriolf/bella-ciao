@@ -294,3 +294,12 @@ func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 
 	return nil
 }
+
+func GetUnvalidatedUsersHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	users, err := getUnvalidatedUsers(db)
+	if err != nil {
+		return errors.Wrap(err, "could not get users from db")
+	}
+
+	return WriteResult(w, users)
+}

@@ -95,6 +95,12 @@ class BELLA {
     });
     return cands;
   }
+
+  Future<List<User>> getUnvalidatedUsers() async {
+    var r = await http.get(url + "users/unvalidated/get", headers: headers());
+    var res = (jsonDecode(r.body) as List)?.map((u) => User.fromJson(u))?.toList() ?? [];
+    return res;
+  }
 }
 
 class User {
@@ -104,6 +110,7 @@ class User {
   String name;
   String uniqueID;
   String role;
+  List<UserFile> files;
 
   // equivalents for backend on consts.go
   static final String roleNone = "none";
@@ -114,7 +121,22 @@ class User {
       : id = json["id"],
         name = json["name"],
         uniqueID = json["unique_id"],
-        role = json["role"];
+        role = json["role"],
+        files = (json["files"] as List)
+                ?.map((r) => UserFile.fromJson(r))
+                ?.toList() ??
+            [];
+}
+
+class UserFile {
+  UserFile({this.id, this.description});
+
+  int id;
+  String description;
+
+  UserFile.fromJson(Map<String, dynamic> json)
+      : id = json["id"],
+        description = json["description"];
 }
 
 class Candidate {
@@ -165,5 +187,3 @@ String _decodeBase64(String str) {
 
   return utf8.decode(base64Url.decode(output));
 }
-
-

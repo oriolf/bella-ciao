@@ -12,6 +12,8 @@ import (
 func InitDB(db *sql.DB) error {
 	types := []DBType{
 		User{},
+		UserFile{},
+		UserMessage{},
 		Election{},
 		Candidate{},
 		Vote{},
@@ -142,6 +144,12 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 	return c, err
 }
 
+func scanUnvalidatedUser(rows *sql.Rows) (interface{}, error) {
+	var u unvalidatedUser
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.FileID, &u.FileDescription)
+	return u, err
+}
+
 func scanCount(rows *sql.Rows) (interface{}, error) {
 	var c int
 	err := rows.Scan(&c)
@@ -169,4 +177,47 @@ func createElection(db *sql.DB, e Election) error {
               VALUES (?, ?, ?, ?, ?, ?, ?);`
 	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountType, e.MaxCandidates, e.MinCandidates)
 	return err
+}
+
+type unvalidatedUser struct {
+	ID              int
+	UniqueID        string
+	Name            string
+	FileID          *int
+	FileDescription *string
+}
+
+// TODO get also user messages
+func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
+	query := `SELECT users.id, users.unique_id, users.name, files.id, files.description 
+	FROM users LEFT JOIN files ON users.id=files.user_id 
+	WHERE users.role == 'none';`
+
+	res, err := queryDB(db, scanUnvalidatedUser, query)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not query db")
+	}
+
+	m := make(map[int]User)
+	for _, x := range res {
+		y, ok := x.(unvalidatedUser)
+		if !ok {
+			continue
+		}
+
+		u, ok := m[y.ID]
+		if !ok {
+			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name}
+		}
+		if y.FileID != nil && y.FileDescription != nil {
+			u.Files = append(u.Files, UserFile{ID: *y.FileID, Description: *y.FileDescription})
+		}
+		m[y.ID] = u
+	}
+
+	for _, x := range m {
+		users = append(users, x)
+	}
+
+	return users, nil
 }

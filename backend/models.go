@@ -27,6 +27,9 @@ type User struct {
 	Password string `json:"-"`
 	Salt     string `json:"-"`
 	Role     string `json:"role"`
+
+	Files    []UserFile    `json:"files"`
+	Messages []UserMessage `json:"messages"`
 }
 
 func (u User) CreateTableQuery() string {
@@ -37,6 +40,38 @@ func (u User) CreateTableQuery() string {
 		password TEXT NOT NULL,
 		salt TEXT NOT NULL,
 		role TEXT NOT NULL
+	);`
+}
+
+type UserFile struct {
+	ID          int    `json:"id"`
+	UserID      int    `json:"-"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+func (f UserFile) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS files (
+		id integer NOT NULL PRIMARY KEY,
+		user_id integer NOT NULL REFERENCES users(id),
+		name TEXT NOT NULL,
+		description text NOT NULL
+	);`
+}
+
+type UserMessage struct {
+	ID      int    `json:"id"`
+	UserID  int    `json:"-"`
+	Content string `json:"content"`
+	Solved  bool   `json:"solved"`
+}
+
+func (m UserMessage) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS messages (
+		id integer NOT NULL PRIMARY KEY,
+		user_id integer NOT NULL REFERENCES users(id),
+		content TEXT NOT NULL,
+		solved BOOLEAN NOT NULL
 	);`
 }
 
