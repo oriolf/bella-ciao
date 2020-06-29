@@ -1,3 +1,11 @@
+- Fer la pàgina inicial per als tres tipus d'usuari (HomePageContentNone, Validated i Admin).
+- Els usuaris no validats han de poder tindre "comentaris" de l'admin que els ha rebutjat, i els han de poder marcar com a resolts.
+- A l'inicialitzar i al registrar-se correctament hauria de redirigir a alguna altra pàgina.
+
+Idees a considerar
+------------------
+
+
 - Dockeritzada, que es puga fer un docker run test i un docker run i que tot funcione bé.
 - Per tant no necessita ni tindre un apache, ni un mysql, ni res, tot està dins del docker.
 - Registre super fàcil, pots pujar els documents que vulgues i entrar només registrar-te.

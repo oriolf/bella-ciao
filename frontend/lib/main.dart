@@ -154,10 +154,64 @@ class HomePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           if (jwt.user == null) LoginForm(),
-          if (jwt.user != null) Center(child: Text("You are logged in!")),
+          if (jwt.user != null) HomePageContent(jwt: jwt),
         ],
       ),
     );
+  }
+}
+
+class HomePageContent extends StatelessWidget {
+  HomePageContent({this.jwt});
+
+  final JWT jwt;
+
+  @override
+  Widget build(BuildContext context) {
+    if (jwt.user.role == User.roleNone) {
+      return HomePageContentNone(jwt: jwt);
+    } else if (jwt.user.role == User.roleValidated) {
+      return HomePageContentValidated(jwt: jwt);
+    } else if (jwt.user.role == User.roleAdmin) {
+      return HomePageContentAdmin(jwt: jwt);
+    }
+    return Center(child: Text("Unknown user role!"));
+  }
+}
+
+class HomePageContentNone extends StatelessWidget {
+  HomePageContentNone({this.jwt});
+
+  final JWT jwt;
+
+// TODO allow to upload or erase documentation, and mark rejection comments as resolved
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("You are logged in, but not validated!"));
+  }
+}
+
+class HomePageContentValidated extends StatelessWidget {
+  HomePageContentValidated({this.jwt});
+
+  final JWT jwt;
+
+// TODO show basic election info, and if time is right, allow to vote directly here
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("You are logged in, and validated!"));
+  }
+}
+
+class HomePageContentAdmin extends StatelessWidget {
+  HomePageContentAdmin({this.jwt});
+
+  final JWT jwt;
+
+// TODO show list of unvalidated users with button to validate or reject with a message; show first users without rejection message
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text("You are logged in, and you are admin!"));
   }
 }
 
@@ -185,12 +239,9 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildTextInput(TextEditingController controller, String name) {
-    return TextFormField(
+    return TextField(
         controller: controller,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: name,
-        ),
+        hintText: name,
         validator: (value) {
           if (value.length > 0) {
             return null;
@@ -200,15 +251,12 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildPasswordInput() {
-    return TextFormField(
+    return TextField(
         controller: _passwordController,
         obscureText: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: "Password",
-        ),
+        hintText: "Password",
         validator: (value) {
-          if (value.length > 4) {
+          if (value.length >= 4) {
             // TODO use the same as MIN_PASSWORD_LENGTH set in backend
             return null;
           }
@@ -217,13 +265,10 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildPasswordConfirmInput() {
-    return TextFormField(
+    return TextField(
         controller: _passwordConfirmController,
         obscureText: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: "Confirm password",
-        ),
+        hintText: "Confirm password",
         validator: (value) {
           if (value == _passwordController.value.text) {
             return null;
@@ -270,8 +315,8 @@ class _LoginFormState extends State<LoginForm> {
           });
         }
       } else {
-        var user = await BELLA.api.login(
-            _idController.value.text, _passwordController.value.text);
+        var user = await BELLA.api
+            .login(_idController.value.text, _passwordController.value.text);
 
         var jwt = Provider.of<JWT>(context, listen: false);
         if (user == null) {
@@ -471,7 +516,7 @@ class InitializePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Page(
       jwt: jwt,
-      title: "Inici",
+      title: "Inicialitza",
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -513,12 +558,9 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildTextInput(TextEditingController controller, String name) {
-    return TextFormField(
+    return TextField(
         controller: controller,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: name,
-        ),
+        hintText: name,
         validator: (value) {
           if (value.length > 0) {
             return null;
@@ -539,16 +581,13 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildNumericInput(TextEditingController controller, String name) {
-    return TextFormField(
+    return TextField(
         controller: controller,
         keyboardType: TextInputType.number,
         inputFormatters: <TextInputFormatter>[
           WhitelistingTextInputFormatter.digitsOnly
         ],
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: name,
-        ),
+        hintText: name,
         validator: (value) {
           if (value.length > 0) {
             return null;
@@ -558,13 +597,10 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildPasswordInput() {
-    return TextFormField(
+    return TextField(
         controller: _passwordController,
         obscureText: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: "Password",
-        ),
+        hintText: "Password",
         validator: (value) {
           if (value.length > 4) {
             // TODO use the same as MIN_PASSWORD_LENGTH set in backend
@@ -575,13 +611,10 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildPasswordConfirmInput() {
-    return TextFormField(
+    return TextField(
         controller: _passwordConfirmController,
         obscureText: true,
-        decoration: InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: "Confirm password",
-        ),
+        hintText: "Confirm password",
         validator: (value) {
           if (value == _passwordController.value.text) {
             return null;
@@ -733,26 +766,17 @@ class NewCandidateDialog extends StatelessWidget {
       title: Text("Add candidate"),
       content: Container(
         width: 500.0,
-        // TODO may overflow, add scroll
+        //  may overflow, add scroll
         child: SpacedColumn(
           padding: 10,
           children: <Widget>[
-            // TODO REFACTOR custom textformfield with decoration always set
-            TextFormField(
-              controller: nameController,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: "Name",
-              ),
+            TextField(controller: nameController, hintText: "Name"),
+            TextField(
+              controller: presentationController,
+              hintText: "Presentation",
+              keyboardType: TextInputType.multiline,
+              maxLines: 20,
             ),
-            TextFormField(
-                controller: presentationController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: "Presentation",
-                ),
-                keyboardType: TextInputType.multiline,
-                maxLines: 20),
           ],
         ),
       ),
@@ -776,6 +800,43 @@ class NewCandidateDialog extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class TextField extends StatelessWidget {
+  const TextField({
+    Key key,
+    this.hintText,
+    this.keyboardType,
+    this.maxLines,
+    this.validator,
+    this.obscureText,
+    this.inputFormatters,
+    @required this.controller,
+  }) : super(key: key);
+
+  final TextEditingController controller;
+  final String hintText;
+  final int maxLines;
+  final TextInputType keyboardType;
+  final Function validator;
+  final bool obscureText;
+  final List<TextInputFormatter> inputFormatters;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        border: OutlineInputBorder(),
+        hintText: hintText,
+      ),
+      keyboardType: keyboardType,
+      maxLines: maxLines ?? 1,
+      validator: validator,
+      obscureText: obscureText ?? false,
+      inputFormatters: inputFormatters,
     );
   }
 }

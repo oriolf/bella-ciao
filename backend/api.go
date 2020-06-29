@@ -109,7 +109,6 @@ func GetInitializeParams(r *http.Request, token *jwt.Token) (interface{}, error)
 }
 
 func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	// TODO if a user admin or an election already exist, return error
 	count, err := countElections(db)
 	if err != nil || count > 0 {
 		return errors.New("an election already exists")

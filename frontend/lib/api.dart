@@ -34,7 +34,6 @@ class BELLA {
     int minCandidates,
     int maxCandidates,
   ) async {
-    print("START: ${start.toUtc().toIso8601String()}");
     var request = {
       "admin": {
         "name": name,
@@ -106,6 +105,11 @@ class User {
   String uniqueID;
   String role;
 
+  // equivalents for backend on consts.go
+  static final String roleNone = "none";
+  static final String roleValidated = "validated";
+  static final String roleAdmin = "admin";
+
   User.fromJson(Map<String, dynamic> json)
       : id = json["id"],
         name = json["name"],
@@ -161,3 +165,5 @@ String _decodeBase64(String str) {
 
   return utf8.decode(base64Url.decode(output));
 }
+
+
