@@ -221,3 +221,8 @@ func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
 
 	return users, nil
 }
+
+func getFilename(db *sql.DB, id int) (name string, err error) {
+	err = db.QueryRow("SELECT name FROM files WHERE id=?;", id).Scan(&name)
+	return name, err
+}

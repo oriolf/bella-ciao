@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'dart:html' as html;
 
 class BELLA {
   BELLA._();
@@ -98,8 +99,27 @@ class BELLA {
 
   Future<List<User>> getUnvalidatedUsers() async {
     var r = await http.get(url + "users/unvalidated/get", headers: headers());
-    var res = (jsonDecode(r.body) as List)?.map((u) => User.fromJson(u))?.toList() ?? [];
+    var res =
+        (jsonDecode(r.body) as List)?.map((u) => User.fromJson(u))?.toList() ??
+            [];
     return res;
+  }
+
+  downloadFile(int id) async {
+    print("Downloading file $id");
+    var res = await http.get(url + "users/files/download?id=$id",headers: headers());
+    final blob = html.Blob([res.bodyBytes]);
+    final downloadURL = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.document.createElement('a') as html.AnchorElement
+      ..href = downloadURL
+      ..style.display = 'none'
+      ..download = 'asd.pdf'; // TODO real name
+    html.document.body.children.add(anchor);
+
+    anchor.click();
+
+    html.document.body.children.remove(anchor);
+    html.Url.revokeObjectUrl(downloadURL);
   }
 }
 

@@ -33,6 +33,7 @@ func main() {
 	http.HandleFunc("/candidates/add", handler(AdminToken, GetCandidateParams, AddCandidateHandler))
 
 	http.HandleFunc("/users/unvalidated/get", handler(AdminToken, noParams, GetUnvalidatedUsersHandler))
+	http.HandleFunc("/users/files/download", handler(OwnerOrAdminToken, IDParams, DownloadFile))
 	// TODO upload and download files
 
 	log.Println("Start listening...")

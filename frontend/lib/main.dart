@@ -210,20 +210,59 @@ class HomePageContentAdmin extends StatelessWidget {
 
 // TODO implement, show user and files info, also buttons to validate and to reject (with a message)
   Widget _buildUnvalidatedUser(User x) {
-    return ListTile(title: Text("user ${x.uniqueID}"));
+    var children = <Widget>[Text("${x.name} (${x.uniqueID})")];
+    for (var file in x.files) {
+      children.add(Row(children: <Widget>[
+        OutlineButton(
+          visualDensity: VisualDensity.compact,
+          child: Text("Visualize"),
+          onPressed: () { BELLA.api.downloadFile(file.id); },
+        ),
+        SizedBox(width: 20),
+        Text("${file.description}")
+      ]));
+    }
+    return ListTile(
+      title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start, children: children),
+      trailing: Container(
+        width: 200,
+        child: Row(children: <Widget>[
+          FlatButton(
+            child: Text("Validate"),
+            color: Colors.blue,
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+          SizedBox(width: 20),
+          FlatButton(
+            child: Text("Reject"),
+            color: Colors.red,
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ]),
+      ),
+    );
   }
 
 // TODO show list of unvalidated users with button to validate or reject with a message
 // show first users without rejection message
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100,
-      child: AsyncList(
-        builder: _buildUnvalidatedUser,
-        dataFunc: BELLA.api.getUnvalidatedUsers,
-      ),
-    );
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text("Users pending validation", style: TextStyle(fontSize: 36)),
+          Container(
+            decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
+            height: 500,
+            child: AsyncList(
+              builder: _buildUnvalidatedUser,
+              dataFunc: BELLA.api.getUnvalidatedUsers,
+            ),
+          )
+        ]);
   }
 }
 

@@ -3,6 +3,9 @@ package main
 import (
 	"database/sql"
 	"net/http"
+	"net/url"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -79,6 +82,20 @@ func AdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	if claims.Role != ROLE_ADMIN {
 		return token, claims, errors.New("non admin role")
 	}
+
+	return token, claims, nil
+}
+
+func OwnerOrAdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(r)
+	if err != nil {
+		return token, claims, errors.Wrapf(err, "error getting token")
+	}
+
+	//	if claims.Role != ROLE_ADMIN {
+	//		// TODO check if resource asked for is owned by
+	//		return token, claims, errors.New("non admin role")
+	//	}
 
 	return token, claims, nil
 }
@@ -196,6 +213,20 @@ func GetLoginParams(r *http.Request, token *jwt.Token) (interface{}, error) {
 	return params, nil
 }
 
+func IDParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+	value := r.URL.Query().Get("id")
+	if value == "" {
+		return nil, errors.New("missing parameter")
+	}
+
+	id, err := strconv.Atoi(value)
+	if err != nil {
+		return nil, errors.New("id is not a number")
+	}
+
+	return id, nil
+}
+
 func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	params, ok := p.(registerParams)
 	if !ok {
@@ -302,4 +333,20 @@ func GetUnvalidatedUsersHandler(w http.ResponseWriter, db *sql.DB, token *jwt.To
 	}
 
 	return WriteResult(w, users)
+}
+
+// TODO
+func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	return nil
+}
+
+func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	id, _ := p.(int)
+	filename, err := getFilename(db, id)
+	if err != nil {
+		return err
+	}
+
+	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join("uploads", filename))
+	return nil
 }
