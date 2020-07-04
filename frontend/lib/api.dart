@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:html';
+import 'package:dio/dio.dart';
 
 import 'package:http/http.dart' as http;
 import 'dart:html' as html;
@@ -107,14 +109,28 @@ class BELLA {
 
   Future<List<UserFile>> getOwnFiles() async {
     var r = await http.get(url + "users/files/own", headers: headers());
-    var res = (jsonDecode(r.body) as List)?.map((f) => UserFile.fromJson(f))?.toList() ?? [];
+    var res = (jsonDecode(r.body) as List)
+            ?.map((f) => UserFile.fromJson(f))
+            ?.toList() ??
+        [];
     return res;
   }
 
   Future<List<UserMessage>> getOwnMessages() async {
     var r = await http.get(url + "users/messages/own", headers: headers());
-    var res = (jsonDecode(r.body) as List)?.map((f) => UserMessage.fromJson(f))?.toList() ?? [];
+    var res = (jsonDecode(r.body) as List)
+            ?.map((f) => UserMessage.fromJson(f))
+            ?.toList() ??
+        [];
     return res;
+  }
+
+  uploadFile(List<int> data, String filename) async {
+    Dio dio = new Dio();
+    FormData formData = FormData.fromMap(
+        {"file": await MultipartFile.fromBytes(data, filename: filename)});
+    await dio.post(url + "users/files/upload",
+        data: formData, options: Options(headers: headers()));
   }
 
   downloadFile(int id) async {
@@ -162,11 +178,13 @@ class User {
   String toString() {
     var s = "ID: $id. Name: $name. UniqueID: $uniqueID. Role: $role.\nFiles:\n";
     for (var file in files) {
-      s += "  ID: ${file.id}. Name: ${file.name}. Description: ${file.description}.\n";
+      s +=
+          "  ID: ${file.id}. Name: ${file.name}. Description: ${file.description}.\n";
     }
     s += "Messages:\n";
     for (var message in messages) {
-      s += "  ID: ${message.id}. Solved: ${message.solved}. Content: ${message.content}.\n";
+      s +=
+          "  ID: ${message.id}. Solved: ${message.solved}. Content: ${message.content}.\n";
     }
     return s;
   }
@@ -195,7 +213,7 @@ class UserFile {
 
   UserFile.fromJson(Map<String, dynamic> json)
       : id = json["id"],
-      name = json["name"],
+        name = json["name"],
         description = json["description"];
 }
 

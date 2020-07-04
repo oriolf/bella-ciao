@@ -17,4 +17,6 @@ const (
 	COUNT_DOWDALL = "dowdall" // https://en.wikipedia.org/wiki/Borda_count
 
 	MIN_PASSWORD_LENGTH = 6
+
+	UPLOADS_FOLDER = "uploads"
 )

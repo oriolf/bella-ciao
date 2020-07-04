@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -33,6 +34,12 @@ type registerParams struct {
 	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
 	Password string `json:"password"`
+}
+
+type fileUploadParams struct {
+	content     []byte
+	filename    string
+	description string
 }
 
 func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
@@ -367,12 +374,46 @@ func GetUnvalidatedUsersHandler(w http.ResponseWriter, db *sql.DB, token *jwt.To
 }
 
 func GetUploadFileParams(r *http.Request) (interface{}, error) {
-	fmt.Printf("Getting upload file params")
-	return nil, nil
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		return nil, fmt.Errorf("could not get file from form: %w", err)
+	}
+	defer file.Close()
+
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %w", err)
+	}
+
+	// TODO include also description
+	return fileUploadParams{
+		filename: handler.Filename,
+		content:  b,
+	}, nil
 }
 
-// TODO
 func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	par, ok := p.(fileUploadParams)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	// TODO this truncates previous file, should check if file exists, create another name for it, etc.
+	// this should be thread-safe, more files could be uploading at the same time with the same name
+	f, err := os.Create(filepath.Join(UPLOADS_FOLDER, par.filename))
+	if err != nil {
+		return fmt.Errorf("could not create file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(par.content); err != nil {
+		return fmt.Errorf("could not write to file: %w", err)
+	}
+
+	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: par.filename, Description: par.description}); err != nil {
+		return fmt.Errorf("could not insert file: %w", err)
+	}
+
 	return nil
 }
 
@@ -387,7 +428,7 @@ func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 		return fmt.Errorf("could not get file name: %w", err)
 	}
 
-	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join("uploads", filename))
+	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join(UPLOADS_FOLDER, filename))
 	return nil
 }
 
@@ -402,7 +443,7 @@ func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return fmt.Errorf("could not get file name: %w", err)
 	}
 
-	if err := os.Remove(filepath.Join("uploads", filename)); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if err := os.Remove(filepath.Join(UPLOADS_FOLDER, filename)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("could not delete file: %w", err)
 	}
 

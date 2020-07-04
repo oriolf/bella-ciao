@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:html';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +7,7 @@ import 'package:bella_ciao/api.dart';
 import 'package:bella_ciao/shared.dart';
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:file_picker_web/file_picker_web.dart';
 
 const ROLE_ADMIN = "admin";
 
@@ -186,7 +187,8 @@ class HomePageContentNone extends StatelessWidget {
   HomePageContentNone({this.jwt});
 
   final JWT jwt;
-  final GlobalKey<_AsyncListState<UserFile>> filesKey = GlobalKey<_AsyncListState<UserFile>>();
+  final GlobalKey<_AsyncListState<UserFile>> filesKey =
+      GlobalKey<_AsyncListState<UserFile>>();
 
   Function _solveMessage(int id) {
     return () {
@@ -214,12 +216,25 @@ class HomePageContentNone extends StatelessWidget {
   }
 
   _uploadImage() async {
-    print("Uploading image...");
-    File file = await FilePicker.getFile();
-    print("File $file");
+    InputElement uploadInput = FileUploadInputElement();
+    uploadInput.click();
+    uploadInput.onChange.listen((event) {
+      if (uploadInput.files.length == 1) {
+        final file = uploadInput.files[0];
+        final reader = FileReader();
+        reader.onLoadEnd.listen((e) async {
+          List<int> _bytesData =
+              Base64Decoder().convert(reader.result.toString().split(",").last);
+          await BELLA.api.uploadFile(_bytesData, file.name);
+          filesKey.currentState.reloadData();
+        });
+        reader.readAsDataUrl(file);
+      }
+    });
+
+    uploadInput.remove();
   }
 
-// TODO allow to upload or erase documentation
   @override
   Widget build(BuildContext context) {
     var notification = NotificationBox(

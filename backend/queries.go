@@ -156,6 +156,12 @@ func solveMessage(db *sql.DB, messageID int) error {
 	return err
 }
 
+func insertFile(db *sql.DB, file UserFile) error {
+	_, err := db.Exec("INSERT INTO files (user_id, name, description) VALUES (?, ?, ?);",
+		file.UserID, file.Name, file.Description)
+	return err
+}
+
 func deleteFile(db *sql.DB, fileID int) error {
 	_, err := db.Exec("DELETE FROM files WHERE id=?;", fileID)
 	return err
