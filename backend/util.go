@@ -4,11 +4,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -32,12 +33,12 @@ func GetParams(r *http.Request, model interface{}) error {
 func GetSaltAndHashPassword(pass string) (string, string, error) {
 	salt, err := SafeID()
 	if err != nil {
-		return "", "", errors.Wrap(err, "could not generate salt")
+		return "", "", fmt.Errorf("could not generate salt: %w", err)
 	}
 
 	password, err := HashPassword(pass, salt)
 	if err != nil {
-		return "", "", errors.Wrap(err, "could not hash password")
+		return "", "", fmt.Errorf("could not hash password: %w", err)
 	}
 
 	return password, salt, nil
@@ -47,7 +48,7 @@ func SafeID() (string, error) {
 	b := make([]byte, 32)
 	n, err := rand.Read(b)
 	if err != nil {
-		return "", errors.Wrap(err, "can't read from crypto/rand")
+		return "", fmt.Errorf("can't read from crypto/rand: %w", err)
 	}
 	if n != len(b) {
 		return "", errors.New("wrong length read from crypto/rand")
@@ -71,7 +72,7 @@ func HashPassword(pass, salt string) (string, error) {
 func ValidatePassword(pass, dbpass, salt string) error {
 	hashed, err := HashPassword(pass, salt)
 	if err != nil {
-		return errors.Wrap(err, "error hashing password")
+		return fmt.Errorf("error hashing password: %w", err)
 	}
 
 	if hashed != dbpass {
@@ -84,12 +85,12 @@ func ValidatePassword(pass, dbpass, salt string) error {
 func WriteResult(w http.ResponseWriter, result interface{}) error {
 	js, err := json.Marshal(result)
 	if err != nil {
-		return errors.Wrap(err, "could not marshal result")
+		return fmt.Errorf("could not marshal result: %w", err)
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if _, err := w.Write(js); err != nil {
-		return errors.Wrap(err, "could not write result")
+		return fmt.Errorf("could not write result: %w", err)
 	}
 
 	return nil

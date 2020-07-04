@@ -33,9 +33,12 @@ func main() {
 	http.HandleFunc("/candidates/add", handler(AdminToken, GetCandidateParams, AddCandidateHandler))
 
 	http.HandleFunc("/users/unvalidated/get", handler(AdminToken, noParams, GetUnvalidatedUsersHandler))
+	http.HandleFunc("/users/files/own", handler(UserToken, noParams, GetOwnFiles))
+	http.HandleFunc("/users/files/delete", handler(FileOwnerOrAdminToken, IDParams, DeleteFile))
 	http.HandleFunc("/users/files/download", handler(FileOwnerOrAdminToken, IDParams, DownloadFile))
+	http.HandleFunc("/users/files/upload", handler(UserToken, GetUploadFileParams, UploadFile))
+	http.HandleFunc("/users/messages/own", handler(UserToken, noParams, GetOwnMessages))
 	http.HandleFunc("/users/messages/solve", handler(MessageOwnerOrAdminToken, IDParams, SolveMessage))
-	// TODO upload and download files
 
 	log.Println("Start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
@@ -65,7 +68,7 @@ func handler(
 		}
 
 		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "X-Requested-With,content-type,Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 

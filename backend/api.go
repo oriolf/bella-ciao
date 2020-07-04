@@ -2,15 +2,17 @@ package main
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/pkg/errors"
 )
 
 type initializeParams struct {
@@ -63,7 +65,7 @@ func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Toke
 func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
-		return token, claims, errors.Wrapf(err, "error getting token")
+		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
 	if claims.Role == ROLE_NONE {
@@ -76,7 +78,7 @@ func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token
 func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
-		return token, claims, errors.Wrapf(err, "error getting token")
+		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
 	if claims.Role != ROLE_ADMIN {
@@ -89,7 +91,7 @@ func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *C
 func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
-		return token, claims, errors.Wrapf(err, "error getting token")
+		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
 	if claims.Role != ROLE_ADMIN {
@@ -98,7 +100,7 @@ func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jw
 			return token, claims, errors.New("wrong params model")
 		}
 		if err := checkFileOwnedByUser(db, fileID, claims.User.ID); err != nil {
-			return token, claims, errors.Wrap(err, "not admin and file not owned")
+			return token, claims, fmt.Errorf("not admin and file not owned: %w", err)
 		}
 	}
 
@@ -108,7 +110,7 @@ func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jw
 func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
-		return token, claims, errors.Wrapf(err, "error getting token")
+		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
 	if claims.Role != ROLE_ADMIN {
@@ -117,7 +119,7 @@ func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (
 			return token, claims, errors.New("wrong params model")
 		}
 		if err := checkMessageOwnedByUser(db, messageID, claims.User.ID); err != nil {
-			return token, claims, errors.Wrap(err, "not admin and message not owned")
+			return token, claims, fmt.Errorf("not admin and message not owned: %w", err)
 		}
 	}
 
@@ -168,12 +170,12 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	admin := params.Admin
 	password, salt, err := GetSaltAndHashPassword(admin.Password)
 	if err != nil {
-		return errors.Wrap(err, "could not get salt or hash password")
+		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
 	user := User{Name: admin.Name, UniqueID: admin.UniqueID, Password: password, Salt: salt}
 	if err := RegisterUserAdmin(db, user); err != nil {
-		return errors.Wrap(err, "could not register user in db")
+		return fmt.Errorf("could not register user in db: %w", err)
 	}
 
 	e := params.Election
@@ -186,7 +188,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		MaxCandidates: e.MaxCandidates,
 	}
 	if err := createElection(db, election); err != nil {
-		return errors.Wrap(err, "could not create election")
+		return fmt.Errorf("could not create election: %w", err)
 	}
 
 	return nil
@@ -213,12 +215,12 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 
 	password, salt, err := GetSaltAndHashPassword(params.Password)
 	if err != nil {
-		return errors.Wrap(err, "could not get salt or hash password")
+		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
 	user := User{Name: params.Name, UniqueID: params.UniqueID, Password: password, Salt: salt}
 	if err := RegisterUser(db, user); err != nil {
-		return errors.Wrap(err, "could not register user in db")
+		return fmt.Errorf("could not register user in db: %w", err)
 	}
 
 	return nil
@@ -259,25 +261,25 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 
 	user, err := GetUserFromUniqueID(db, params.UniqueID)
 	if err != nil {
-		return errors.Wrap(err, "could not get user")
+		return fmt.Errorf("could not get user: %w", err)
 	}
 
 	if err := ValidatePassword(params.Password, user.Password, user.Salt); err != nil {
-		return errors.Wrap(err, "invalid password")
+		return fmt.Errorf("invalid password: %w", err)
 	}
 
 	user.Files, user.Messages, err = getUserFilesAndMessages(db, user.ID)
 	if err != nil {
-		return errors.Wrap(err, "could not get files and messages")
+		return fmt.Errorf("could not get files and messages: %w", err)
 	}
 
 	tokenString, err := GenerateToken(user)
 	if err != nil {
-		return errors.Wrap(err, "could not generate token")
+		return fmt.Errorf("could not generate token: %w", err)
 	}
 
 	if err := WriteResult(w, tokenString); err != nil {
-		return errors.Wrap(err, "could not write response")
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil
@@ -286,11 +288,11 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 func Refresh(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	tokenString, err := GenerateToken(claims.User)
 	if err != nil {
-		return errors.Wrap(err, "could not generate token")
+		return fmt.Errorf("could not generate token: %w", err)
 	}
 
 	if err := WriteResult(w, tokenString); err != nil {
-		return errors.Wrap(err, "could not write response")
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil
@@ -299,11 +301,11 @@ func Refresh(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims
 func GetElectionsHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
 	elections, err := GetElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
-		return errors.Wrap(err, "could not get elections")
+		return fmt.Errorf("could not get elections: %w", err)
 	}
 
 	if err := WriteResult(w, elections); err != nil {
-		return errors.Wrap(err, "could not write response")
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil
@@ -312,11 +314,11 @@ func GetElectionsHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 func GetCandidatesHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
 	candidates, err := GetCandidates(db, 1)
 	if err != nil {
-		return errors.Wrap(err, "could not get candidates")
+		return fmt.Errorf("could not get candidates: %w", err)
 	}
 
 	if err := WriteResult(w, candidates); err != nil {
-		return errors.Wrap(err, "could not write response")
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil
@@ -349,7 +351,7 @@ func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 
 	err := AddCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: params.Image})
 	if err != nil {
-		return errors.Wrap(err, "could not add candidate")
+		return fmt.Errorf("could not add candidate: %w", err)
 	}
 
 	return nil
@@ -358,10 +360,15 @@ func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 func GetUnvalidatedUsersHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	users, err := getUnvalidatedUsers(db)
 	if err != nil {
-		return errors.Wrap(err, "could not get users from db")
+		return fmt.Errorf("could not get users from db: %w", err)
 	}
 
 	return WriteResult(w, users)
+}
+
+func GetUploadFileParams(r *http.Request) (interface{}, error) {
+	fmt.Printf("Getting upload file params")
+	return nil, nil
 }
 
 // TODO
@@ -377,10 +384,32 @@ func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 
 	filename, err := getFilename(db, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get file name: %w", err)
 	}
 
 	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join("uploads", filename))
+	return nil
+}
+
+func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	id, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	filename, err := getFilename(db, id)
+	if err != nil {
+		return fmt.Errorf("could not get file name: %w", err)
+	}
+
+	if err := os.Remove(filepath.Join("uploads", filename)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("could not delete file: %w", err)
+	}
+
+	if err := deleteFile(db, id); err != nil {
+		return fmt.Errorf("could not delete file from db: %w", err)
+	}
+
 	return nil
 }
 
@@ -391,8 +420,26 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	}
 
 	if err := solveMessage(db, messageID); err != nil {
-		return errors.Wrap(err, "could not solve message")
+		return fmt.Errorf("could not solve message: %w", err)
 	}
 
 	return nil
+}
+
+func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	files, err := getUserFiles(db, claims.User.ID)
+	if err != nil {
+		return err
+	}
+
+	return WriteResult(w, files)
+}
+
+func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	messages, err := getUserMessages(db, claims.User.ID)
+	if err != nil {
+		return err
+	}
+
+	return WriteResult(w, messages)
 }

@@ -54,7 +54,7 @@ func (f UserFile) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS files (
 		id integer NOT NULL PRIMARY KEY,
 		user_id integer NOT NULL REFERENCES users(id),
-		name TEXT NOT NULL,
+		name TEXT UNIQUE NOT NULL,
 		description text NOT NULL
 	);`
 }

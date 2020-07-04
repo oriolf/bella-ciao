@@ -105,6 +105,18 @@ class BELLA {
     return res;
   }
 
+  Future<List<UserFile>> getOwnFiles() async {
+    var r = await http.get(url + "users/files/own", headers: headers());
+    var res = (jsonDecode(r.body) as List)?.map((f) => UserFile.fromJson(f))?.toList() ?? [];
+    return res;
+  }
+
+  Future<List<UserMessage>> getOwnMessages() async {
+    var r = await http.get(url + "users/messages/own", headers: headers());
+    var res = (jsonDecode(r.body) as List)?.map((f) => UserMessage.fromJson(f))?.toList() ?? [];
+    return res;
+  }
+
   downloadFile(int id) async {
     print("Downloading file $id");
     var res =
@@ -121,6 +133,10 @@ class BELLA {
 
     html.document.body.children.remove(anchor);
     html.Url.revokeObjectUrl(downloadURL);
+  }
+
+  deleteFile(int id) async {
+    await http.delete(url + "users/files/delete?id=$id", headers: headers());
   }
 
   solveMessage(int id) async {

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -5,6 +6,7 @@ import 'package:bella_ciao/api.dart';
 import 'package:bella_ciao/shared.dart';
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
+import 'package:file_picker/file_picker.dart';
 
 const ROLE_ADMIN = "admin";
 
@@ -184,17 +186,42 @@ class HomePageContentNone extends StatelessWidget {
   HomePageContentNone({this.jwt});
 
   final JWT jwt;
+  final GlobalKey<_AsyncListState<UserFile>> filesKey = GlobalKey<_AsyncListState<UserFile>>();
 
   Function _solveMessage(int id) {
     return () {
+      // TODO obtain messages from API call, not jwt, this widget should be stateful, and reload messages when one is solved
       BELLA.api.solveMessage(id);
     };
   }
 
-// TODO allow to upload or erase documentation, and mark rejection comments as resolved
+  Widget _buildFile(UserFile f) {
+    return ListTile(
+      title: Text(f.name),
+      trailing: Container(
+        width: 200,
+        child: FlatButton(
+          child: Text("Esborra"),
+          color: Colors.blue,
+          textColor: Colors.white,
+          onPressed: () async {
+            await BELLA.api.deleteFile(f.id);
+            filesKey.currentState.reloadData();
+          },
+        ),
+      ),
+    );
+  }
+
+  _uploadImage() async {
+    print("Uploading image...");
+    File file = await FilePicker.getFile();
+    print("File $file");
+  }
+
+// TODO allow to upload or erase documentation
   @override
   Widget build(BuildContext context) {
-    print("User: ${jwt.user}");
     var notification = NotificationBox(
       content:
           "Encara no estàs validat, per favor, puja la documentació requerida",
@@ -210,8 +237,27 @@ class HomePageContentNone extends StatelessWidget {
       );
     }
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         notification,
+        Row(children: <Widget>[
+          Text("Files", style: TextStyle(fontSize: 36)),
+          Expanded(child: Container()),
+          FlatButton(
+            color: Colors.blue,
+            child: Text("Puja"),
+            onPressed: _uploadImage,
+          ),
+        ]),
+        Container(
+          decoration: BoxDecoration(border: Border.all(color: Colors.grey)),
+          height: 500,
+          child: AsyncList(
+            key: filesKey,
+            builder: _buildFile,
+            dataFunc: BELLA.api.getOwnFiles,
+          ),
+        )
       ],
     );
   }
@@ -295,7 +341,7 @@ class HomePageContentAdmin extends StatelessWidget {
 }
 
 class AsyncList<T> extends StatefulWidget {
-  AsyncList({this.builder, this.dataFunc});
+  AsyncList({Key key, this.builder, this.dataFunc}) : super(key: key);
 
   final Widget Function(T) builder;
   final Future<List<T>> Function() dataFunc;
@@ -319,6 +365,9 @@ class _AsyncListState<T> extends State<AsyncList<T>> {
   }
 
   reloadData() async {
+    setState(() {
+      waiting = true;
+    });
     var l = await dataFunc();
     setState(() {
       data = l;

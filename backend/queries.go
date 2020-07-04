@@ -2,11 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 func InitDB(db *sql.DB) error {
@@ -20,7 +19,7 @@ func InitDB(db *sql.DB) error {
 	}
 	for i, table := range types {
 		if _, err := db.Exec(table.CreateTableQuery()); err != nil {
-			return errors.Wrapf(err, "error executing init query %d", i)
+			return fmt.Errorf("error executing init query %d: %w", i, err)
 		}
 	}
 
@@ -30,7 +29,7 @@ func InitDB(db *sql.DB) error {
 func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stmt string, args ...interface{}) ([]interface{}, error) {
 	rows, err := db.Query(stmt, args...)
 	if err != nil {
-		return nil, errors.Wrap(err, "error during query")
+		return nil, fmt.Errorf("error during query: %w", err)
 	}
 	defer rows.Close()
 
@@ -39,14 +38,14 @@ func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 	for rows.Next() {
 		x, err := scanFunc(rows)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error scaning row %d", i)
+			return nil, fmt.Errorf("error scaning row %d: %w", i, err)
 		}
 		res = append(res, x)
 		i += 1
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, errors.Wrap(err, "final error in rows")
+		return nil, fmt.Errorf("final error in rows: %w", err)
 	}
 
 	return res, nil
@@ -69,7 +68,7 @@ func resourceOwnedByUser(db *sql.DB, resourceName string, resourceID, userID int
 	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE id = ? AND user_id = ?;", resourceName)
 	n, err := countDB(db, query, resourceID, userID)
 	if err != nil {
-		return errors.Wrap(err, "error counting")
+		return fmt.Errorf("error counting: %w", err)
 	}
 	if n == 0 {
 		return errors.New("resource not owned")
@@ -80,7 +79,7 @@ func resourceOwnedByUser(db *sql.DB, resourceName string, resourceID, userID int
 func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
 	results, err := queryDB(db, scanCount, query, args...)
 	if err != nil {
-		return 0, errors.Wrap(err, "error querying count")
+		return 0, fmt.Errorf("error querying count: %w", err)
 	}
 
 	if len(results) != 1 {
@@ -100,7 +99,7 @@ func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 		SELECT id, name, date_start, date_end, count_type, max_candidates, min_candidates, public 
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
 	if err != nil {
-		return nil, errors.Wrap(err, "error querying elections")
+		return nil, fmt.Errorf("error querying elections: %w", err)
 	}
 
 	var electionIDs []int
@@ -120,7 +119,7 @@ func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 		SELECT id, election_id, name, presentation, image FROM candidates WHERE election_id IN (?) ORDER BY random();`,
 		strings.Join(elIDstring, ","))
 	if err != nil {
-		return nil, errors.Wrap(err, "error querying candidates")
+		return nil, fmt.Errorf("error querying candidates: %w", err)
 	}
 
 	for _, x := range results {
@@ -154,6 +153,11 @@ func AddCandidate(db *sql.DB, c Candidate) error {
 
 func solveMessage(db *sql.DB, messageID int) error {
 	_, err := db.Exec("UPDATE messages SET solved=1 WHERE id=?;", messageID)
+	return err
+}
+
+func deleteFile(db *sql.DB, fileID int) error {
+	_, err := db.Exec("DELETE FROM files WHERE id=?;", fileID)
 	return err
 }
 
@@ -210,24 +214,39 @@ func GetUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
 }
 
 func getUserFilesAndMessages(db *sql.DB, id int) (files []UserFile, messages []UserMessage, err error) {
+	files, err = getUserFiles(db, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get files: %w", err)
+	}
+
+	messages, err = getUserMessages(db, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not get messages: %w", err)
+	}
+
+	return files, messages, nil
+}
+
+func getUserFiles(db *sql.DB, id int) (files []UserFile, err error) {
 	fs, err := queryDB(db, scanUserFile, "SELECT id, name, description FROM files WHERE user_id = ?;", id)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get files")
+		return nil, fmt.Errorf("could not select: %w", err)
 	}
-
-	ms, err := queryDB(db, scanUserMessage, "SELECT id, content, solved FROM messages WHERE user_id = ?;", id)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "could not get messages")
-	}
-
 	for _, x := range fs {
 		files = append(files, x.(UserFile))
+	}
+	return files, nil
+}
+
+func getUserMessages(db *sql.DB, id int) (messages []UserMessage, err error) {
+	ms, err := queryDB(db, scanUserMessage, "SELECT id, content, solved FROM messages WHERE user_id = ?;", id)
+	if err != nil {
+		return nil, fmt.Errorf("could not get messages: %w", err)
 	}
 	for _, x := range ms {
 		messages = append(messages, x.(UserMessage))
 	}
-
-	return files, messages, nil
+	return messages, nil
 }
 
 func createElection(db *sql.DB, e Election) error {
@@ -253,7 +272,7 @@ func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
 
 	res, err := queryDB(db, scanUnvalidatedUser, query)
 	if err != nil {
-		return nil, errors.Wrap(err, "could not query db")
+		return nil, fmt.Errorf("could not query db: %w", err)
 	}
 
 	m := make(map[int]User)
