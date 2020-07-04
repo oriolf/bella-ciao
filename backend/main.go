@@ -33,7 +33,8 @@ func main() {
 	http.HandleFunc("/candidates/add", handler(AdminToken, GetCandidateParams, AddCandidateHandler))
 
 	http.HandleFunc("/users/unvalidated/get", handler(AdminToken, noParams, GetUnvalidatedUsersHandler))
-	http.HandleFunc("/users/files/download", handler(OwnerOrAdminToken, IDParams, DownloadFile))
+	http.HandleFunc("/users/files/download", handler(FileOwnerOrAdminToken, IDParams, DownloadFile))
+	http.HandleFunc("/users/messages/solve", handler(MessageOwnerOrAdminToken, IDParams, SolveMessage))
 	// TODO upload and download files
 
 	log.Println("Start listening...")
@@ -53,8 +54,8 @@ func initDB() {
 }
 
 func handler(
-	tokenFunc func(*http.Request) (*jwt.Token, *Claims, error),
-	paramsFunc func(*http.Request, *jwt.Token) (interface{}, error),
+	tokenFunc func(*sql.DB, *http.Request, interface{}) (*jwt.Token, *Claims, error),
+	paramsFunc func(*http.Request) (interface{}, error),
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -73,14 +74,7 @@ func handler(
 		}
 
 		log.Println("Received petition to", r.URL.Path)
-		token, claims, err := tokenFunc(r)
-		if err != nil {
-			log.Println("Error validating token:", err)
-			http.Error(w, "", http.StatusUnauthorized)
-			return
-		}
-
-		params, err := paramsFunc(r, token)
+		params, err := paramsFunc(r)
 		if err != nil {
 			log.Println("Error validating parameters:", err)
 			http.Error(w, "", http.StatusBadRequest)
@@ -93,6 +87,13 @@ func handler(
 		}
 		defer db.Close()
 
+		token, claims, err := tokenFunc(db, r, params) // token func validates permissions too
+		if err != nil {
+			log.Println("Error validating token:", err)
+			http.Error(w, "", http.StatusUnauthorized)
+			return
+		}
+
 		if err := handleFunc(w, db, token, claims, params); err != nil {
 			log.Println("Error handling request:", err)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -100,6 +101,6 @@ func handler(
 	}
 }
 
-func noParams(*http.Request, *jwt.Token) (interface{}, error) {
+func noParams(*http.Request) (interface{}, error) {
 	return nil, nil
 }

@@ -33,8 +33,8 @@ type registerParams struct {
 	Password string `json:"password"`
 }
 
-func NoToken(r *http.Request) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(r)
+func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return &jwt.Token{}, nil, nil
 	}
@@ -42,7 +42,7 @@ func NoToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
-func UserToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
+func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Token, claims *Claims, err error) {
 	auth := r.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) < 2 {
@@ -60,8 +60,8 @@ func UserToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
 	return token, claims, nil
 }
 
-func ValidatedToken(r *http.Request) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(r)
+func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return token, claims, errors.Wrapf(err, "error getting token")
 	}
@@ -73,8 +73,8 @@ func ValidatedToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
-func AdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(r)
+func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return token, claims, errors.Wrapf(err, "error getting token")
 	}
@@ -86,16 +86,40 @@ func AdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
 	return token, claims, nil
 }
 
-func OwnerOrAdminToken(r *http.Request) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(r)
+func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return token, claims, errors.Wrapf(err, "error getting token")
 	}
 
-	//	if claims.Role != ROLE_ADMIN {
-	//		// TODO check if resource asked for is owned by
-	//		return token, claims, errors.New("non admin role")
-	//	}
+	if claims.Role != ROLE_ADMIN {
+		fileID, ok := params.(int)
+		if !ok {
+			return token, claims, errors.New("wrong params model")
+		}
+		if err := checkFileOwnedByUser(db, fileID, claims.User.ID); err != nil {
+			return token, claims, errors.Wrap(err, "not admin and file not owned")
+		}
+	}
+
+	return token, claims, nil
+}
+
+func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return token, claims, errors.Wrapf(err, "error getting token")
+	}
+
+	if claims.Role != ROLE_ADMIN {
+		messageID, ok := params.(int)
+		if !ok {
+			return token, claims, errors.New("wrong params model")
+		}
+		if err := checkMessageOwnedByUser(db, messageID, claims.User.ID); err != nil {
+			return token, claims, errors.Wrap(err, "not admin and message not owned")
+		}
+	}
 
 	return token, claims, nil
 }
@@ -112,7 +136,7 @@ func Initialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cl
 	return nil // only returns OK if not initialized
 }
 
-func GetInitializeParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+func GetInitializeParams(r *http.Request) (interface{}, error) {
 	var params initializeParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -168,7 +192,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetRegisterParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+func GetRegisterParams(r *http.Request) (interface{}, error) {
 	var params registerParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -200,7 +224,7 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return nil
 }
 
-func GetLoginParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+func GetLoginParams(r *http.Request) (interface{}, error) {
 	var params registerParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -213,7 +237,7 @@ func GetLoginParams(r *http.Request, token *jwt.Token) (interface{}, error) {
 	return params, nil
 }
 
-func IDParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+func IDParams(r *http.Request) (interface{}, error) {
 	value := r.URL.Query().Get("id")
 	if value == "" {
 		return nil, errors.New("missing parameter")
@@ -240,6 +264,11 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 
 	if err := ValidatePassword(params.Password, user.Password, user.Salt); err != nil {
 		return errors.Wrap(err, "invalid password")
+	}
+
+	user.Files, user.Messages, err = getUserFilesAndMessages(db, user.ID)
+	if err != nil {
+		return errors.Wrap(err, "could not get files and messages")
 	}
 
 	tokenString, err := GenerateToken(user)
@@ -299,7 +328,7 @@ type candidateParams struct {
 	Image        string
 }
 
-func GetCandidateParams(r *http.Request, token *jwt.Token) (interface{}, error) {
+func GetCandidateParams(r *http.Request) (interface{}, error) {
 	var params candidateParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -341,12 +370,29 @@ func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 }
 
 func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, _ := p.(int)
+	id, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
 	filename, err := getFilename(db, id)
 	if err != nil {
 		return err
 	}
 
 	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join("uploads", filename))
+	return nil
+}
+
+func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	messageID, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	if err := solveMessage(db, messageID); err != nil {
+		return errors.Wrap(err, "could not solve message")
+	}
+
 	return nil
 }

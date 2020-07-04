@@ -1,4 +1,4 @@
-module github.com/oriolf/bella-ciao/backend
+module github.com/oriolf/bella-ciao
 
 go 1.12
 

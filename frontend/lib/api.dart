@@ -107,7 +107,8 @@ class BELLA {
 
   downloadFile(int id) async {
     print("Downloading file $id");
-    var res = await http.get(url + "users/files/download?id=$id",headers: headers());
+    var res =
+        await http.get(url + "users/files/download?id=$id", headers: headers());
     final blob = html.Blob([res.bodyBytes]);
     final downloadURL = html.Url.createObjectUrlFromBlob(blob);
     final anchor = html.document.createElement('a') as html.AnchorElement
@@ -121,6 +122,10 @@ class BELLA {
     html.document.body.children.remove(anchor);
     html.Url.revokeObjectUrl(downloadURL);
   }
+
+  solveMessage(int id) async {
+    await http.get(url + "users/messages/solve?id=$id", headers: headers());
+  }
 }
 
 class User {
@@ -131,11 +136,24 @@ class User {
   String uniqueID;
   String role;
   List<UserFile> files;
+  List<UserMessage> messages;
 
   // equivalents for backend on consts.go
   static final String roleNone = "none";
   static final String roleValidated = "validated";
   static final String roleAdmin = "admin";
+
+  String toString() {
+    var s = "ID: $id. Name: $name. UniqueID: $uniqueID. Role: $role.\nFiles:\n";
+    for (var file in files) {
+      s += "  ID: ${file.id}. Name: ${file.name}. Description: ${file.description}.\n";
+    }
+    s += "Messages:\n";
+    for (var message in messages) {
+      s += "  ID: ${message.id}. Solved: ${message.solved}. Content: ${message.content}.\n";
+    }
+    return s;
+  }
 
   User.fromJson(Map<String, dynamic> json)
       : id = json["id"],
@@ -145,6 +163,10 @@ class User {
         files = (json["files"] as List)
                 ?.map((r) => UserFile.fromJson(r))
                 ?.toList() ??
+            [],
+        messages = (json["messages"] as List)
+                ?.map((r) => UserMessage.fromJson(r))
+                ?.toList() ??
             [];
 }
 
@@ -152,11 +174,26 @@ class UserFile {
   UserFile({this.id, this.description});
 
   int id;
+  String name;
   String description;
 
   UserFile.fromJson(Map<String, dynamic> json)
       : id = json["id"],
+      name = json["name"],
         description = json["description"];
+}
+
+class UserMessage {
+  UserMessage({this.id, this.content});
+
+  int id;
+  String content;
+  bool solved;
+
+  UserMessage.fromJson(Map<String, dynamic> json)
+      : id = json["id"],
+        content = json["content"],
+        solved = json["solved"];
 }
 
 class Candidate {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:bella_ciao/api.dart';
+import 'package:bella_ciao/shared.dart';
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 
@@ -184,10 +185,35 @@ class HomePageContentNone extends StatelessWidget {
 
   final JWT jwt;
 
+  Function _solveMessage(int id) {
+    return () {
+      BELLA.api.solveMessage(id);
+    };
+  }
+
 // TODO allow to upload or erase documentation, and mark rejection comments as resolved
   @override
   Widget build(BuildContext context) {
-    return Center(child: Text("You are logged in, but not validated!"));
+    print("User: ${jwt.user}");
+    var notification = NotificationBox(
+      content:
+          "Encara no estàs validat, per favor, puja la documentació requerida",
+    );
+    var unsolvedMessages = jwt.user.messages.where((m) => !m.solved).toList();
+    if (unsolvedMessages.length > 0) {
+      var m = unsolvedMessages[0];
+      notification = NotificationBox(
+        type: "warning",
+        action: _solveMessage(m.id),
+        content:
+            "S'ha rebutjat la documentació per la següent raó: \"${m.content}\".\nPer favor, resol la incidència i marca el botó de \"Resol\"",
+      );
+    }
+    return Column(
+      children: <Widget>[
+        notification,
+      ],
+    );
   }
 }
 
@@ -216,7 +242,9 @@ class HomePageContentAdmin extends StatelessWidget {
         OutlineButton(
           visualDensity: VisualDensity.compact,
           child: Text("Visualize"),
-          onPressed: () { BELLA.api.downloadFile(file.id); },
+          onPressed: () {
+            BELLA.api.downloadFile(file.id);
+          },
         ),
         SizedBox(width: 20),
         Text("${file.description}")

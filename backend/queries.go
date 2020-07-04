@@ -57,6 +57,26 @@ func countAdminUsers(db *sql.DB) (int, error) {
 	return countDB(db, "SELECT COUNT(1) FROM users WHERE role LIKE ?;", ROLE_ADMIN)
 }
 
+func checkFileOwnedByUser(db *sql.DB, fileID, userID int) error {
+	return resourceOwnedByUser(db, "files", fileID, userID)
+}
+
+func checkMessageOwnedByUser(db *sql.DB, fileID, userID int) error {
+	return resourceOwnedByUser(db, "messages", fileID, userID)
+}
+
+func resourceOwnedByUser(db *sql.DB, resourceName string, resourceID, userID int) error {
+	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE id = ? AND user_id = ?;", resourceName)
+	n, err := countDB(db, query, resourceID, userID)
+	if err != nil {
+		return errors.Wrap(err, "error counting")
+	}
+	if n == 0 {
+		return errors.New("resource not owned")
+	}
+	return nil
+}
+
 func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
 	results, err := queryDB(db, scanCount, query, args...)
 	if err != nil {
@@ -132,6 +152,11 @@ func AddCandidate(db *sql.DB, c Candidate) error {
 	return err
 }
 
+func solveMessage(db *sql.DB, messageID int) error {
+	_, err := db.Exec("UPDATE messages SET solved=1 WHERE id=?;", messageID)
+	return err
+}
+
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
 	err := rows.Scan(&e.ID, &e.Name, &e.Start, &e.End, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)
@@ -156,6 +181,18 @@ func scanCount(rows *sql.Rows) (interface{}, error) {
 	return c, err
 }
 
+func scanUserFile(rows *sql.Rows) (interface{}, error) {
+	var f UserFile
+	err := rows.Scan(&f.ID, &f.Name, &f.Description)
+	return f, err
+}
+
+func scanUserMessage(rows *sql.Rows) (interface{}, error) {
+	var m UserMessage
+	err := rows.Scan(&m.ID, &m.Content, &m.Solved)
+	return m, err
+}
+
 func RegisterUser(db *sql.DB, user User) error      { return registerUser(db, user, ROLE_NONE) }
 func RegisterUserAdmin(db *sql.DB, user User) error { return registerUser(db, user, ROLE_ADMIN) }
 
@@ -170,6 +207,27 @@ func GetUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
 		&user.ID, &user.Name, &user.Password, &user.Salt, &user.Role)
 	user.UniqueID = uniqueID
 	return user, err
+}
+
+func getUserFilesAndMessages(db *sql.DB, id int) (files []UserFile, messages []UserMessage, err error) {
+	fs, err := queryDB(db, scanUserFile, "SELECT id, name, description FROM files WHERE user_id = ?;", id)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get files")
+	}
+
+	ms, err := queryDB(db, scanUserMessage, "SELECT id, content, solved FROM messages WHERE user_id = ?;", id)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not get messages")
+	}
+
+	for _, x := range fs {
+		files = append(files, x.(UserFile))
+	}
+	for _, x := range ms {
+		messages = append(messages, x.(UserMessage))
+	}
+
+	return files, messages, nil
 }
 
 func createElection(db *sql.DB, e Election) error {
