@@ -7,7 +7,6 @@ import 'package:bella_ciao/api.dart';
 import 'package:bella_ciao/shared.dart';
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
-import 'package:file_picker_web/file_picker_web.dart';
 
 const ROLE_ADMIN = "admin";
 

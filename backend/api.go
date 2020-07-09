@@ -398,9 +398,7 @@ func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return errors.New("wrong params model")
 	}
 
-	// TODO this truncates previous file, should check if file exists, create another name for it, etc.
-	// this should be thread-safe, more files could be uploading at the same time with the same name
-	f, err := os.Create(filepath.Join(UPLOADS_FOLDER, par.filename))
+	f, filename, err := safeCreateFile(UPLOADS_FOLDER, par.filename)
 	if err != nil {
 		return fmt.Errorf("could not create file: %w", err)
 	}
@@ -410,7 +408,7 @@ func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return fmt.Errorf("could not write to file: %w", err)
 	}
 
-	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: par.filename, Description: par.description}); err != nil {
+	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: filename, Description: par.description}); err != nil {
 		return fmt.Errorf("could not insert file: %w", err)
 	}
 

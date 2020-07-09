@@ -6,15 +6,22 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/scrypt"
 )
 
-// TODO move to environment?
-var JWTKey = []byte("my_secret_key")
+var (
+	// TODO move to environment?
+	JWTKey          = []byte("my_secret_key")
+	fileUploadMutex sync.Mutex
+)
 
 func IsAdmin(claims *Claims) bool {
 	return claims != nil && claims.User.Role == "admin"
@@ -123,4 +130,55 @@ func invalidElectionParams(params electionParams) bool {
 		params.Start.After(params.End) || params.End.Before(params.Start) ||
 		invalidCountType(params.CountType) ||
 		params.MaxCandidates == 0 || params.MinCandidates > params.MaxCandidates
+}
+
+func safeCreateFile(folder, filename string) (*os.File, string, error) {
+	fileUploadMutex.Lock()
+	defer fileUploadMutex.Unlock()
+	fullPath := filepath.Join(folder, filename)
+	_, err := os.Stat(fullPath)
+	if err == nil {
+		alternativeName, err := getAlternativeFilename(folder, filename)
+		if err != nil {
+			return nil, "", fmt.Errorf("could not get alternative filename: %w", err)
+		}
+		f, err := os.Create(filepath.Join(folder, alternativeName))
+		return f, alternativeName, err
+	} else if os.IsNotExist(err) {
+		f, err := os.Create(fullPath)
+		return f, filename, err
+	}
+
+	return nil, "", fmt.Errorf("could not check if file already existed: %w", err)
+}
+
+func getAlternativeFilename(folder, filename string) (string, error) {
+	files, err := ioutil.ReadDir(folder)
+	if err != nil {
+		return "", fmt.Errorf("could not read dir: %w", err)
+	}
+
+	filenames := make(map[string]struct{})
+	for _, file := range files {
+		filenames[file.Name()] = struct{}{}
+	}
+
+	base, extension := getNameAndExtension(filename)
+	for i := 1; ; i++ {
+		alternativeName := base + fmt.Sprintf("_%d", i) + extension
+		if _, ok := filenames[alternativeName]; !ok {
+			return alternativeName, nil
+		}
+	}
+
+	return "", errors.New("impossible to find alternative")
+}
+
+func getNameAndExtension(filename string) (string, string) {
+	for i := len(filename) - 1; i >= 0; i-- {
+		if filename[i] == '.' {
+			return filename[:i], filename[i:]
+		}
+	}
+	return filename, ""
 }
