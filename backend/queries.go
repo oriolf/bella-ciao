@@ -181,7 +181,7 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 
 func scanUnvalidatedUser(rows *sql.Rows) (interface{}, error) {
 	var u unvalidatedUser
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.FileID, &u.FileDescription)
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.FileID, &u.FileDescription)
 	return u, err
 }
 
@@ -213,8 +213,8 @@ func registerUser(db *sql.DB, user User, role string) error {
 }
 
 func GetUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
-	err = db.QueryRow("SELECT id, name, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
-		&user.ID, &user.Name, &user.Password, &user.Salt, &user.Role)
+	err = db.QueryRow("SELECT id, name, email, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)
 	user.UniqueID = uniqueID
 	return user, err
 }
@@ -266,13 +266,14 @@ type unvalidatedUser struct {
 	ID              int
 	UniqueID        string
 	Name            string
+	Email           string
 	FileID          *int
 	FileDescription *string
 }
 
 // TODO get also user messages
 func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
-	query := `SELECT users.id, users.unique_id, users.name, files.id, files.description 
+	query := `SELECT users.id, users.unique_id, users.name, users.email, files.id, files.description 
 	FROM users LEFT JOIN files ON users.id=files.user_id 
 	WHERE users.role == 'none';`
 

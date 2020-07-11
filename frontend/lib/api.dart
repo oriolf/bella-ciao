@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:html';
 import 'package:dio/dio.dart';
 
 import 'package:http/http.dart' as http;
@@ -132,7 +131,7 @@ class BELLA {
   uploadFile(List<int> data, String filename) async {
     Dio dio = new Dio();
     FormData formData = FormData.fromMap(
-        {"file": await MultipartFile.fromBytes(data, filename: filename)});
+        {"file": MultipartFile.fromBytes(data, filename: filename)});
     await dio.post(url + "users/files/upload",
         data: formData, options: Options(headers: headers()));
   }
@@ -162,13 +161,22 @@ class BELLA {
   solveMessage(int id) async {
     await http.get(url + "users/messages/solve?id=$id", headers: headers());
   }
+
+  Future<String> updateUserName(String name) {
+    return Future.delayed(Duration(seconds: 1), () { return "an error happened"; });
+  }
+
+  Future<String> updateUserEmail(String email) {
+    return Future.delayed(Duration(seconds: 1), () { return ""; });
+  }
 }
 
 class User {
-  User({this.id, this.name, this.uniqueID, this.role});
+  User({this.id, this.name, this.email, this.uniqueID, this.role});
 
   int id;
   String name;
+  String email;
   String uniqueID;
   String role;
   List<UserFile> files;
@@ -180,7 +188,7 @@ class User {
   static final String roleAdmin = "admin";
 
   String toString() {
-    var s = "ID: $id. Name: $name. UniqueID: $uniqueID. Role: $role.\nFiles:\n";
+    var s = "ID: $id. Name: $name. Email: $email. UniqueID: $uniqueID. Role: $role.\nFiles:\n";
     for (var file in files) {
       s +=
           "  ID: ${file.id}. Name: ${file.name}. Description: ${file.description}.\n";
@@ -196,6 +204,7 @@ class User {
   User.fromJson(Map<String, dynamic> json)
       : id = json["id"],
         name = json["name"],
+        email = json["email"],
         uniqueID = json["unique_id"],
         role = json["role"],
         files = (json["files"] as List)

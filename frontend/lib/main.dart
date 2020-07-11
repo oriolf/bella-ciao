@@ -1,10 +1,10 @@
-import 'dart:html';
+import 'dart:html' as html;
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:bella_ciao/api.dart';
-import 'package:bella_ciao/shared.dart';
+import 'package:bella_ciao/shared.dart' as shared;
 import 'package:intl/intl.dart';
 import 'package:datetime_picker_formfield/datetime_picker_formfield.dart';
 
@@ -215,12 +215,12 @@ class HomePageContentNone extends StatelessWidget {
   }
 
   _uploadImage() async {
-    InputElement uploadInput = FileUploadInputElement();
+    html.InputElement uploadInput = html.FileUploadInputElement();
     uploadInput.click();
     uploadInput.onChange.listen((event) {
       if (uploadInput.files.length == 1) {
         final file = uploadInput.files[0];
-        final reader = FileReader();
+        final reader = html.FileReader();
         reader.onLoadEnd.listen((e) async {
           List<int> _bytesData =
               Base64Decoder().convert(reader.result.toString().split(",").last);
@@ -236,14 +236,14 @@ class HomePageContentNone extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    var notification = NotificationBox(
+    var notification = shared.NotificationBox(
       content:
           "Encara no estàs validat, per favor, puja la documentació requerida",
     );
     var unsolvedMessages = jwt.user.messages.where((m) => !m.solved).toList();
     if (unsolvedMessages.length > 0) {
       var m = unsolvedMessages[0];
-      notification = NotificationBox(
+      notification = shared.NotificationBox(
         type: "warning",
         action: _solveMessage(m.id),
         content:
@@ -271,7 +271,25 @@ class HomePageContentNone extends StatelessWidget {
             builder: _buildFile,
             dataFunc: BELLA.api.getOwnFiles,
           ),
-        )
+        ),
+        Row(children: <Widget>[
+          Expanded(
+            flex: 1,
+            child: shared.UpdateField(
+              name: "Name",
+              original: jwt.user.name,
+              updateFunc: BELLA.api.updateUserName,
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: shared.UpdateField(
+              name: "Email",
+              original: jwt.user.email,
+              updateFunc: BELLA.api.updateUserEmail,
+            ),
+          )
+        ])
       ],
     );
   }
@@ -429,7 +447,7 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildTextInput(TextEditingController controller, String name) {
-    return TextField(
+    return shared.TextField(
         controller: controller,
         hintText: name,
         validator: (value) {
@@ -441,7 +459,7 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildPasswordInput() {
-    return TextField(
+    return shared.TextField(
         controller: _passwordController,
         obscureText: true,
         hintText: "Password",
@@ -455,7 +473,7 @@ class _LoginFormState extends State<LoginForm> {
   }
 
   Widget _buildPasswordConfirmInput() {
-    return TextField(
+    return shared.TextField(
         controller: _passwordConfirmController,
         obscureText: true,
         hintText: "Confirm password",
@@ -758,7 +776,7 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildTextInput(TextEditingController controller, String name) {
-    return TextField(
+    return shared.TextField(
         controller: controller,
         hintText: name,
         validator: (value) {
@@ -781,7 +799,7 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildNumericInput(TextEditingController controller, String name) {
-    return TextField(
+    return shared.TextField(
         controller: controller,
         keyboardType: TextInputType.number,
         inputFormatters: <TextInputFormatter>[
@@ -797,7 +815,7 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildPasswordInput() {
-    return TextField(
+    return shared.TextField(
         controller: _passwordController,
         obscureText: true,
         hintText: "Password",
@@ -811,7 +829,7 @@ class _InitializeFormState extends State<InitializeForm> {
   }
 
   Widget _buildPasswordConfirmInput() {
-    return TextField(
+    return shared.TextField(
         controller: _passwordConfirmController,
         obscureText: true,
         hintText: "Confirm password",
@@ -972,8 +990,8 @@ class NewCandidateDialog extends StatelessWidget {
         child: SpacedColumn(
           padding: 10,
           children: <Widget>[
-            TextField(controller: nameController, hintText: "Name"),
-            TextField(
+            shared.TextField(controller: nameController, hintText: "Name"),
+            shared.TextField(
               controller: presentationController,
               hintText: "Presentation",
               keyboardType: TextInputType.multiline,
@@ -1002,43 +1020,6 @@ class NewCandidateDialog extends StatelessWidget {
           },
         ),
       ],
-    );
-  }
-}
-
-class TextField extends StatelessWidget {
-  const TextField({
-    Key key,
-    this.hintText,
-    this.keyboardType,
-    this.maxLines,
-    this.validator,
-    this.obscureText,
-    this.inputFormatters,
-    @required this.controller,
-  }) : super(key: key);
-
-  final TextEditingController controller;
-  final String hintText;
-  final int maxLines;
-  final TextInputType keyboardType;
-  final Function validator;
-  final bool obscureText;
-  final List<TextInputFormatter> inputFormatters;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      decoration: InputDecoration(
-        border: OutlineInputBorder(),
-        hintText: hintText,
-      ),
-      keyboardType: keyboardType,
-      maxLines: maxLines ?? 1,
-      validator: validator,
-      obscureText: obscureText ?? false,
-      inputFormatters: inputFormatters,
     );
   }
 }
