@@ -33,6 +33,7 @@ type electionParams struct {
 type registerParams struct {
 	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
+	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
@@ -151,7 +152,9 @@ func GetInitializeParams(r *http.Request) (interface{}, error) {
 		return nil, err
 	}
 
-	if invalidRegisterParams(params.Admin) || invalidElectionParams(params.Election) {
+	var invalidRegister bool
+	params.Admin, invalidRegister = invalidRegisterParams(params.Admin)
+	if invalidRegister || invalidElectionParams(params.Election) {
 		return nil, errors.New("needed data missing")
 	}
 
@@ -180,7 +183,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
-	user := User{Name: admin.Name, UniqueID: admin.UniqueID, Password: password, Salt: salt}
+	user := User{Name: admin.Name, Email: admin.Email, UniqueID: admin.UniqueID, Password: password, Salt: salt}
 	if err := RegisterUserAdmin(db, user); err != nil {
 		return fmt.Errorf("could not register user in db: %w", err)
 	}
@@ -207,7 +210,8 @@ func GetRegisterParams(r *http.Request) (interface{}, error) {
 		return nil, err
 	}
 
-	if invalidRegisterParams(params) {
+	params, invalid := invalidRegisterParams(params)
+	if invalid {
 		return nil, errors.New("needed data missing")
 	}
 
@@ -225,7 +229,7 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
-	user := User{Name: params.Name, UniqueID: params.UniqueID, Password: password, Salt: salt}
+	user := User{Name: params.Name, UniqueID: params.UniqueID, Email: params.Email, Password: password, Salt: salt}
 	if err := RegisterUser(db, user); err != nil {
 		return fmt.Errorf("could not register user in db: %w", err)
 	}

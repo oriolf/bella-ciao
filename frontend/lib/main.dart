@@ -409,6 +409,7 @@ class _LoginFormState extends State<LoginForm> {
   final _formKey = GlobalKey<FormState>();
   final _idController = TextEditingController();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
   bool _registering = false;
@@ -421,6 +422,10 @@ class _LoginFormState extends State<LoginForm> {
 
   Widget _buildNameInput() {
     return _buildTextInput(_nameController, "Name");
+  }
+
+  Widget _buildEmailInput() {
+    return _buildTextInput(_emailController, "Email");
   }
 
   Widget _buildTextInput(TextEditingController controller, String name) {
@@ -491,8 +496,12 @@ class _LoginFormState extends State<LoginForm> {
         _errorText = "";
       });
       if (_registering) {
-        var res = await BELLA.api.register(_nameController.value.text,
-            _idController.value.text, _passwordController.value.text);
+        var res = await BELLA.api.register(
+          _nameController.value.text,
+          _emailController.value.text,
+          _idController.value.text,
+          _passwordController.value.text,
+        );
 
         if (!res) {
           setState(() {
@@ -531,6 +540,7 @@ class _LoginFormState extends State<LoginForm> {
               _buildPasswordInput(),
               if (_registering) _buildPasswordConfirmInput(),
               if (_registering) _buildNameInput(),
+              if (_registering) _buildEmailInput(),
               if (_registering) Text(_errorText),
               if (_registering) _buildSubmitButton(context),
               if (!_registering) Text(_errorText),
@@ -721,6 +731,7 @@ class _InitializeFormState extends State<InitializeForm> {
   final _formKey = GlobalKey<FormState>();
   final _idController = TextEditingController();
   final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _passwordConfirmController = TextEditingController();
   final _electionNameController = TextEditingController();
@@ -736,6 +747,10 @@ class _InitializeFormState extends State<InitializeForm> {
 
   Widget _buildNameInput() {
     return _buildTextInput(_nameController, "Name");
+  }
+
+  Widget _buildEmailInput() {
+    return _buildTextInput(_emailController, "Email");
   }
 
   Widget _buildElectionNameInput() {
@@ -877,6 +892,7 @@ class _InitializeFormState extends State<InitializeForm> {
       });
       var res = await BELLA.api.initialize(
         _nameController.value.text,
+        _emailController.value.text,
         _idController.value.text,
         _passwordController.value.text,
         _electionNameController.value.text,
@@ -907,6 +923,7 @@ class _InitializeFormState extends State<InitializeForm> {
           _buildPasswordInput(),
           _buildPasswordConfirmInput(),
           _buildNameInput(),
+          _buildEmailInput(),
           Text("Election data", style: Theme.of(context).textTheme.headline6),
           _buildElectionNameInput(),
           _buildStartInput(),

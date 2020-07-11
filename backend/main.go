@@ -21,12 +21,9 @@ func main() {
 	http.HandleFunc("/auth/register", handler(NoToken, GetRegisterParams, Register))
 	http.HandleFunc("/auth/login", handler(NoToken, GetLoginParams, Login))
 	http.HandleFunc("/auth/refresh", handler(UserToken, noParams, Refresh))
-	// http.HandleFunc("/auth/logout", handler(userToken, noParams, login)) // TODO optional blacklist token
 
 	http.HandleFunc("/elections/get", handler(NoToken, noParams, GetElectionsHandler))
-	// http.HandleFunc("/elections/create", handler(adminToken, electionParams, createElection))
 	// http.HandleFunc("/elections/update", handler(adminToken, electionParams, updateElection))
-	// http.HandleFunc("/elections/delete", handler(adminToken, electionParams, deleteElection))
 	// http.HandleFunc("/elections/vote", handler(validatedToken, voteParams, vote))
 
 	http.HandleFunc("/candidates/get", handler(NoToken, noParams, GetCandidatesHandler))

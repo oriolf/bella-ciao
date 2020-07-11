@@ -17,9 +17,11 @@ class BELLA {
     return res.statusCode != 200;
   }
 
-  Future<bool> register(String name, String uniqueID, String password) async {
+  Future<bool> register(
+      String name, String email, String uniqueID, String password) async {
     var request = {
       "name": name,
+      "email": email,
       "unique_id": uniqueID,
       "password": password,
     };
@@ -29,6 +31,7 @@ class BELLA {
 
   Future<bool> initialize(
     String name,
+    String email,
     String uniqueID,
     String password,
     String electionName,
@@ -40,6 +43,7 @@ class BELLA {
     var request = {
       "admin": {
         "name": name,
+        "email": email,
         "unique_id": uniqueID,
         "password": password,
       },

@@ -24,6 +24,7 @@ type User struct {
 	ID       int    `json:"id"`
 	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
+	Email    string `json:"email"`
 	Password string `json:"-"`
 	Salt     string `json:"-"`
 	Role     string `json:"role"`
@@ -37,6 +38,7 @@ func (u User) CreateTableQuery() string {
 		id integer NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
 		unique_id text UNIQUE NOT NULL,
+		email text UNIQUE NOT NULL,
 		password TEXT NOT NULL,
 		salt TEXT NOT NULL,
 		role TEXT NOT NULL

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"sync"
@@ -119,9 +120,13 @@ func invalidCountType(countType string) bool {
 	return countType != COUNT_BORDA && countType != COUNT_DOWDALL
 }
 
-func invalidRegisterParams(params registerParams) bool {
+func invalidRegisterParams(params registerParams) (registerParams, bool) {
+	address, err := mail.ParseAddress(params.Email)
+	if err != nil {
+		params.Email = address.Address
+	}
 	// TODO unique ID validates one of the allowed types
-	return params.Name == "" || params.UniqueID == "" || len(params.Password) < MIN_PASSWORD_LENGTH
+	return params, params.Name == "" || params.UniqueID == "" || len(params.Password) < MIN_PASSWORD_LENGTH || err != nil
 }
 
 func invalidElectionParams(params electionParams) bool {

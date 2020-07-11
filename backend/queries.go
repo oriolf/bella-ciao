@@ -207,8 +207,8 @@ func RegisterUser(db *sql.DB, user User) error      { return registerUser(db, us
 func RegisterUserAdmin(db *sql.DB, user User) error { return registerUser(db, user, ROLE_ADMIN) }
 
 func registerUser(db *sql.DB, user User, role string) error {
-	query := fmt.Sprintf("INSERT INTO users (name, unique_id, password, salt, role) VALUES (?, ?, ?, ?, '%s');", role)
-	_, err := db.Exec(query, user.Name, user.UniqueID, user.Password, user.Salt)
+	query := fmt.Sprintf("INSERT INTO users (name, unique_id, email, password, salt, role) VALUES (?, ?, ?, ?, ?, '%s');", role)
+	_, err := db.Exec(query, user.Name, user.UniqueID, user.Email, user.Password, user.Salt)
 	return err
 }
 
