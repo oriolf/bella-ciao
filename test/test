@@ -5,8 +5,9 @@ set -e
 (
     trap "kill 0" EXIT
     cd ../backend
-    rm db.db
+    rm -f db.db
     go install
     bella-ciao &
+    sleep 1
     go test
 )

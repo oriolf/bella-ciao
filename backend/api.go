@@ -134,7 +134,7 @@ func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (
 	return token, claims, nil
 }
 
-func Initialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	count, err := countElections(db)
 	if err != nil {
 		return err

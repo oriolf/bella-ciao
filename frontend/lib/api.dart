@@ -11,9 +11,9 @@ class BELLA {
   static final url = "http://localhost:9876/";
   String rawJWT;
 
-  Future<bool> checkInitialized() async {
-    var res = await http.get(url + "initialized");
-    return res.statusCode != 200;
+  Future<bool> checkUninitialized() async {
+    var res = await http.get(url + "uninitialized");
+    return res.statusCode == 200;
   }
 
   Future<bool> register(

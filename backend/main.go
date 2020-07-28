@@ -13,8 +13,8 @@ import (
 const dbfile = "db.db"
 
 var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-	"/initialized": handler(NoToken, noParams, Initialized),
-	"/initialize":  handler(NoToken, GetInitializeParams, Initialize),
+	"/uninitialized": handler(NoToken, noParams, Uninitialized),
+	"/initialize":    handler(NoToken, GetInitializeParams, Initialize),
 
 	"/auth/register": handler(NoToken, GetRegisterParams, Register),
 	"/auth/login":    handler(NoToken, GetLoginParams, Login),

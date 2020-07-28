@@ -53,8 +53,8 @@ class _CheckInitializedState extends State<CheckInitialized> {
       _alreadyChecked = true;
     });
     var jwt = Provider.of<JWT>(context, listen: false);
-    var initialized = await BELLA.api.checkInitialized();
-    if (!initialized) {
+    var uninitialized = await BELLA.api.checkInitialized();
+    if (uninitialized) {
       Navigator.of(context).pop();
       Navigator.of(context).push(
         MaterialPageRoute(
