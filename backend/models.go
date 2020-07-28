@@ -101,7 +101,7 @@ func (e Election) CreateTableQuery() string {
 		public BOOLEAN NOT NULL,
 		count_type TEXT NOT NULL,
 		max_candidates INTEGER NOT NULL CHECK (max_candidates > 0),
-		min_candidates INTEGER NOT NULL,
+		min_candidates INTEGER NOT NULL CHECK (min_candidates >= 0),
 		CHECK (max_candidates >= min_candidates)
 	);`
 }
