@@ -191,6 +191,12 @@ func scanCount(rows *sql.Rows) (interface{}, error) {
 	return c, err
 }
 
+func scanUser(rows *sql.Rows) (interface{}, error) {
+	var u User
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role)
+	return u, err
+}
+
 func scanUserFile(rows *sql.Rows) (interface{}, error) {
 	var f UserFile
 	err := rows.Scan(&f.ID, &f.Name, &f.Description)
@@ -260,6 +266,20 @@ func createElection(db *sql.DB, e Election) error {
               VALUES (?, ?, ?, ?, ?, ?, ?);`
 	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountType, e.MaxCandidates, e.MinCandidates)
 	return err
+}
+
+func getAllUsers(db *sql.DB) (users []User, err error) {
+	query := "SELECT id, unique_id, name, email, role FROM users;"
+	res, err := queryDB(db, scanUser, query)
+	if err != nil {
+		return nil, fmt.Errorf("could not query db: %w", err)
+	}
+
+	for _, x := range res {
+		users = append(users, x.(User))
+	}
+
+	return users, nil
 }
 
 type unvalidatedUser struct {

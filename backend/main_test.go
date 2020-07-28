@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,20 +16,28 @@ type testOptions struct {
 	params interface{}
 }
 
+type expectedUser struct {
+	uniqueID string
+	role     string
+}
+
 func TestAPI(t *testing.T) {
 	type to = testOptions
 	type m = map[string]interface{}
-	user := newUser("name", "name@example.com", "11111111H", "12345678")
-	login := m{"unique_id": "11111111H", "password": "12345678"}
+	uniqueID1, uniqueID2 := "11111111H", "22222222J"
+	user := newUser("name", "name@example.com", uniqueID1, "12345678")
+	login := m{"unique_id": uniqueID1, "password": "12345678"}
 	t.Run("Empty site should not be initialized", testEndpoint("/uninitialized", 200))
 	t.Run("Uninitialized site should reject registers", testEndpoint("/auth/register", 401, to{method: "POST", params: user}))
 	t.Run("Uninitialized site should reject logins", testEndpoint("/auth/login", 401, to{method: "POST", params: login}))
 
-	admin := newUser("admin", "admin@example.com", "22222222J", "12345678")
+	admin := newUser("admin", "admin@example.com", uniqueID2, "12345678")
 	election := newElection("election", "borda", time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour), 2, 5)
 	t.Run("Empty site can be initialized", testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
 	t.Run("Initialized site should accept registers", testEndpoint("/auth/register", 200, to{method: "POST", params: user}))
 	t.Run("Initialized site should accept logins from registered users", testEndpoint("/auth/login", 200, to{method: "POST", params: login}))
+
+	t.Run("Check APP State", checkAppState([]expectedUser{{uniqueID: uniqueID1, role: ROLE_NONE}, {uniqueID: uniqueID2, role: ROLE_ADMIN}}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -87,6 +96,38 @@ func testEndpoint(path string, expectedCode int, options ...testOptions) func(*t
 		handler.ServeHTTP(rr, req)
 		if rr.Code != expectedCode {
 			t.Errorf("[%d] Expected code %v testing endpoint %q, but got %v.", i, expectedCode, path, rr.Code)
+		}
+	}
+}
+
+func checkAppState(expectedUsers []expectedUser) func(*testing.T) {
+	return func(t *testing.T) {
+		db, err := sql.Open("sqlite3", dbfile)
+		if err != nil {
+			t.Fatal("Error during database connection in handler:", err)
+		}
+		defer db.Close()
+
+		users, err := getAllUsers(db)
+		if err != nil {
+			t.Errorf("Error getting all users: %s.", err)
+		}
+
+		if len(users) != len(expectedUsers) {
+			t.Errorf("Expected %d users, but got %d.", len(expectedUsers), len(users))
+		}
+
+	LOOP:
+		for _, e := range expectedUsers {
+			for _, u := range users {
+				if e.uniqueID == u.UniqueID {
+					if e.role != u.Role {
+						t.Errorf("Expected user with unique ID %q to have role %q, but has role %q.", e.uniqueID, e.role, u.Role)
+					}
+					continue LOOP
+				}
+			}
+			t.Errorf("Expected user with unique ID %q, but not found.", e.uniqueID)
 		}
 	}
 }
