@@ -12,30 +12,33 @@ import (
 
 const dbfile = "db.db"
 
+var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
+	"/initialized": handler(NoToken, noParams, Initialized),
+	"/initialize":  handler(NoToken, GetInitializeParams, Initialize),
+
+	"/auth/register": handler(NoToken, GetRegisterParams, Register),
+	"/auth/login":    handler(NoToken, GetLoginParams, Login),
+	"/auth/refresh":  handler(UserToken, noParams, Refresh),
+
+	"/elections/get":  handler(NoToken, noParams, GetElectionsHandler),
+	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
+	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),
+
+	"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsersHandler),
+	"/users/files/own":       handler(UserToken, noParams, GetOwnFiles),
+	"/users/files/delete":    handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
+	"/users/files/download":  handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
+	"/users/files/upload":    handler(UserToken, GetUploadFileParams, UploadFile),
+	"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
+	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
+}
+
 func main() {
 	initDB()
 
-	http.HandleFunc("/initialized", handler(NoToken, noParams, Initialized))
-	http.HandleFunc("/initialize", handler(NoToken, GetInitializeParams, Initialize))
-
-	http.HandleFunc("/auth/register", handler(NoToken, GetRegisterParams, Register))
-	http.HandleFunc("/auth/login", handler(NoToken, GetLoginParams, Login))
-	http.HandleFunc("/auth/refresh", handler(UserToken, noParams, Refresh))
-
-	http.HandleFunc("/elections/get", handler(NoToken, noParams, GetElectionsHandler))
-	// http.HandleFunc("/elections/update", handler(adminToken, electionParams, updateElection))
-	// http.HandleFunc("/elections/vote", handler(validatedToken, voteParams, vote))
-
-	http.HandleFunc("/candidates/get", handler(NoToken, noParams, GetCandidatesHandler))
-	http.HandleFunc("/candidates/add", handler(AdminToken, GetCandidateParams, AddCandidateHandler))
-
-	http.HandleFunc("/users/unvalidated/get", handler(AdminToken, noParams, GetUnvalidatedUsersHandler))
-	http.HandleFunc("/users/files/own", handler(UserToken, noParams, GetOwnFiles))
-	http.HandleFunc("/users/files/delete", handler(FileOwnerOrAdminToken, IDParams, DeleteFile))
-	http.HandleFunc("/users/files/download", handler(FileOwnerOrAdminToken, IDParams, DownloadFile))
-	http.HandleFunc("/users/files/upload", handler(UserToken, GetUploadFileParams, UploadFile))
-	http.HandleFunc("/users/messages/own", handler(UserToken, noParams, GetOwnMessages))
-	http.HandleFunc("/users/messages/solve", handler(MessageOwnerOrAdminToken, IDParams, SolveMessage))
+	for path, handler := range appHandlers {
+		http.HandleFunc(path, handler)
+	}
 
 	log.Println("Start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
