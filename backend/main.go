@@ -21,6 +21,7 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/auth/login":    handler(NoToken, GetLoginParams, Login),
 	"/auth/refresh":  handler(UserToken, noParams, Refresh),
 
+	// TODO test group
 	"/elections/get":  handler(NoToken, noParams, GetElectionsHandler),
 	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
 	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),

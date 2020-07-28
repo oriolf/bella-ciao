@@ -56,7 +56,7 @@ func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Toke
 	auth := r.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) < 2 {
-		return token, claims, errors.New("")
+		return token, claims, errors.New("no token provided")
 	}
 
 	claims = &Claims{} // required, nil claims is no use

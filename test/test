@@ -2,6 +2,14 @@
 
 set -e
 
+pass_fail() {
+    echo "$1" | grep -P "PASS|FAIL"
+}
+
+coverage() {
+    echo "$1" | grep "coverage"
+}
+
 (
     trap "kill 0" EXIT
     cd ../backend
@@ -9,5 +17,10 @@ set -e
     go install
     bella-ciao &
     sleep 1
-    go test
+    go test -coverprofile cover.out
+#    go tool cover -html=cover.out
+#    rm cover.out
+#    oriol="$(go test -coverprofile cover.out)"
+#    echo "$oriol"
+#    echo "$(git rev-parse --short HEAD),$(pass_fail "$oriol"),$(coverage "$oriol")" >> stats.csv
 )
