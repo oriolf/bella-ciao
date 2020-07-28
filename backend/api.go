@@ -135,11 +135,7 @@ func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (
 }
 
 func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	count, err := countElections(db)
-	if err != nil {
-		return err
-	}
-	if err != nil || count > 0 {
+	if initialized := getInitialized(); initialized {
 		return errors.New("already initialized")
 	}
 
@@ -162,6 +158,9 @@ func GetInitializeParams(r *http.Request) (interface{}, error) {
 }
 
 func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	initialized.mutex.Lock()
+	defer initialized.mutex.Unlock()
+
 	count, err := countElections(db)
 	if err != nil || count > 0 {
 		return errors.New("an election already exists")
@@ -200,6 +199,8 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	if err := createElection(db, election); err != nil {
 		return fmt.Errorf("could not create election: %w", err)
 	}
+
+	initialized.value = true
 
 	return nil
 }

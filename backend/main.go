@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -54,6 +55,30 @@ func initDB() {
 	if err := InitDB(db); err != nil {
 		log.Fatalln("Error during database initialization:", err)
 	}
+
+	checkInitialized(db)
+}
+
+var initialized struct {
+	value bool
+	mutex sync.Mutex
+}
+
+func checkInitialized(db *sql.DB) {
+	count, err := countElections(db)
+	if err != nil {
+		log.Fatalln("Could not count elections in check initialized:", err)
+	}
+
+	if count > 0 {
+		initialized.value = true
+	}
+}
+
+func getInitialized() bool {
+	initialized.mutex.Lock()
+	defer initialized.mutex.Unlock()
+	return initialized.value
 }
 
 func handler(
@@ -62,6 +87,14 @@ func handler(
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if initialized := getInitialized(); !initialized {
+			if r.URL.Path != "/initialize" && r.URL.Path != "/uninitialized" {
+				log.Printf("Invalid method %q before initialization\n", r.URL.Path)
+				http.Error(w, "", http.StatusUnauthorized)
+				return
+			}
+		}
+
 		origin := r.Header.Get("Origin")
 		if origin == "" {
 			origin = "*"

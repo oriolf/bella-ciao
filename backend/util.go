@@ -29,6 +29,10 @@ func IsAdmin(claims *Claims) bool {
 }
 
 func GetParams(r *http.Request, model interface{}) error {
+	if r.Body == nil {
+		return errors.New("empty body")
+	}
+
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(model); err != nil {
