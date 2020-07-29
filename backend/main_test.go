@@ -21,8 +21,9 @@ type testOptions struct {
 	query    string
 	token    string
 	resToken *string
-	file     expectedFile
 
+	file          expectedFile
+	fileContent   string
 	expectedUsers []expectedUser
 	expectedFiles []expectedFile
 }
@@ -116,7 +117,10 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
 
-	// TODO "User should be able to download its files"
+	t.Run("User should be able to download its files",
+		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=1", fileContent: "file content\n"}))
+
+	// TODO "User should not be able to download deleted files"
 	// TODO "User should not be able to download another user files"
 	// TODO "User should not be able to delete another user files"
 	// TODO "Admin should be able to download another user files"
@@ -210,6 +214,10 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			} else {
 				compareFiles(t, options.expectedFiles, files)
 			}
+		}
+
+		if options.fileContent != "" && options.fileContent != rr.Body.String() {
+			t.Errorf("Wrong file contents. Expected %q but found %q.", options.fileContent, rr.Body.String())
 		}
 	}
 }
