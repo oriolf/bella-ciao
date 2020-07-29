@@ -18,6 +18,7 @@ import (
 type testOptions struct {
 	method   string
 	params   interface{}
+	query    string
 	token    string
 	resToken *string
 	file     expectedFile
@@ -107,10 +108,15 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("User should be able to get its files",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
-			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"},
-		}}))
+			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
+
+	t.Run("User should be able to delete its files",
+		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=2"}))
+	t.Run("User deleted file should have disappeared", // TODO test also disappeared from uploads folder
+		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
+			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
+
 	// TODO "User should be able to download its files"
-	// TODO "User should be able to delete its files"
 	// TODO "User should not be able to download another user files"
 	// TODO "User should not be able to delete another user files"
 	// TODO "Admin should be able to download another user files"
@@ -168,7 +174,7 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 		}
 
-		req, err := http.NewRequest(method, path, body)
+		req, err := http.NewRequest(method, path+options.query, body)
 		if err != nil {
 			t.Fatalf("[%d] Could not create request for endpoint %q. Error: %s\n", i, path, err)
 		}

@@ -17,11 +17,13 @@ coverage() {
     rm -rf uploads
     go install
     bella-ciao &
-    sleep 1
     go test -coverprofile cover.out
 #    go tool cover -html=cover.out
 #    rm cover.out
 #    oriol="$(go test -coverprofile cover.out)"
 #    echo "$oriol"
 #    echo "$(git rev-parse --short HEAD),$(pass_fail "$oriol"),$(coverage "$oriol")" >> stats.csv
+#   We want the following data for statistics:
+#   commit hash, total number of production code lines, total number of test code lines, ratio test lines/production lines, total number of TODOs, total test time, test time as said by
+#   go test, coverage
 )
