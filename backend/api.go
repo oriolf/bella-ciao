@@ -392,8 +392,9 @@ func GetUploadFileParams(r *http.Request) (interface{}, error) {
 
 	// TODO include also description
 	return fileUploadParams{
-		filename: handler.Filename,
-		content:  b,
+		filename:    handler.Filename,
+		content:     b,
+		description: r.FormValue("description"),
 	}, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -37,6 +38,12 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 
 func main() {
 	initDB()
+
+	if _, err := os.Stat(UPLOADS_FOLDER); err != nil {
+		if err := os.Mkdir(UPLOADS_FOLDER, 0755); err != nil {
+			log.Fatalln("Could not create uploads folder:", err)
+		}
+	}
 
 	for path, handler := range appHandlers {
 		http.HandleFunc(path, handler)

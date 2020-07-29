@@ -14,6 +14,7 @@ coverage() {
     trap "kill 0" EXIT
     cd ../backend
     rm -f db.db
+    rm -rf uploads
     go install
     bella-ciao &
     sleep 1

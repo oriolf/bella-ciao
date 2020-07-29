@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +20,7 @@ type testOptions struct {
 	params   interface{}
 	token    string
 	resToken *string
+	file     expectedFile
 
 	expectedUsers []expectedUser
 	expectedFiles []expectedFile
@@ -96,7 +99,16 @@ func TestAPI(t *testing.T) {
 	t.Run("User should not have any files at first",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{}}))
 
-	// TODO "User should be able to upload files"
+	t.Run("User should be able to upload files",
+		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should be able to upload files and get them renamed",
+		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should be able to upload files and get them renamed",
+		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should be able to get its files",
+		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
+			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"},
+		}}))
 	// TODO "User should be able to download its files"
 	// TODO "User should be able to delete its files"
 	// TODO "User should not be able to download another user files"
@@ -140,12 +152,20 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 		}
 
 		var body io.Reader
+		var err error
+		contentType := ""
 		if params != nil {
 			b, err := json.Marshal(params)
 			if err != nil {
 				t.Fatalf("[%d] Could not marshal params for endpoint %q. Error: %s", i, path, err)
 			}
 			body = bytes.NewReader(b)
+			contentType = "application/json"
+		} else if options.file.name != "" {
+			body, contentType, err = fileUploadBody(options.file.name, map[string]string{"description": options.file.description})
+			if err != nil {
+				t.Fatalf("[%d] Could not create file upload body for endpoint %q. Error: %s\n", i, path, err)
+			}
 		}
 
 		req, err := http.NewRequest(method, path, body)
@@ -154,9 +174,9 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 		}
 
 		if options.token != "" {
-			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", options.token))
 		}
+		req.Header.Set("Content-Type", contentType)
 
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(appHandlers[path])
@@ -241,4 +261,36 @@ LOOP:
 		}
 		t.Errorf("Expected file with name %q, but none found.", e.name)
 	}
+}
+
+func fileUploadBody(filename string, params map[string]string) (io.Reader, string, error) {
+	file, err := os.Open("../test/" + filename)
+	if err != nil {
+		return nil, "", err
+	}
+	defer file.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		return nil, "", err
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return nil, "", err
+	}
+
+	for key, val := range params {
+		if err = writer.WriteField(key, val); err != nil {
+			return nil, "", err
+		}
+	}
+
+	if err = writer.Close(); err != nil {
+		return nil, "", err
+	}
+
+	return body, writer.FormDataContentType(), err
 }
