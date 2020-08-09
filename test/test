@@ -25,5 +25,6 @@ coverage() {
 #    echo "$(git rev-parse --short HEAD),$(pass_fail "$oriol"),$(coverage "$oriol")" >> stats.csv
 #   We want the following data for statistics:
 #   commit hash, total number of production code lines, total number of test code lines, ratio test lines/production lines, total number of TODOs, total test time, test time as said by
-#   go test, coverage
+#   go test, coverage, time to start the backend
+#   For the last one, use https://github.com/garybernhardt/destroy-all-software-extras/blob/master/das-0070-time-to-first-request/time_to_first_request.sh
 )
