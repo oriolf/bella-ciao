@@ -51,6 +51,8 @@ func TestAPI(t *testing.T) {
 	login1 := m{"unique_id": uniqueID1, "password": "12345678"}
 	login2 := m{"unique_id": uniqueID2, "password": "12345678"}
 
+	// Initialization and registers
+
 	t.Run("Empty site should not be initialized",
 		testEndpoint("/uninitialized", 200, to{}))
 
@@ -87,15 +89,7 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID2, role: ROLE_NONE},
 		{uniqueID: uniqueID0, role: ROLE_ADMIN}}))
 
-	t.Run("Non-logged user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{}))
-
-	t.Run("Non-admin user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{token: token1}))
-
-	t.Run("Admin user should get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 200, to{token: token0, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID1}, {uniqueID: uniqueID2}}}))
+	// User files management
 
 	t.Run("Non-logged user cannot get files",
 		testEndpoint("/users/files/own", 401, to{}))
@@ -145,6 +139,18 @@ func TestAPI(t *testing.T) {
 	t.Run("Admin should be able to delete another user files",
 		testEndpoint("/users/files/delete", 200, to{token: token0, query: "?id=4"}))
 	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
+
+	// User validation, including validation messages
+
+	t.Run("Non-logged user should not get list of unvalidated users",
+		testEndpoint("/users/unvalidated/get", 401, to{}))
+
+	t.Run("Non-admin user should not get list of unvalidated users",
+		testEndpoint("/users/unvalidated/get", 401, to{token: token1}))
+
+	t.Run("Admin user should get list of unvalidated users",
+		testEndpoint("/users/unvalidated/get", 200, to{token: token0, expectedUsers: []expectedUser{
+			{uniqueID: uniqueID1}, {uniqueID: uniqueID2}}}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {

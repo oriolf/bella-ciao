@@ -27,11 +27,12 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
 	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),
 
+	"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
+	"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
+	"/users/files/download": handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
+	"/users/files/upload":   handler(UserToken, GetUploadFileParams, UploadFile),
+
 	"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsersHandler),
-	"/users/files/own":       handler(UserToken, noParams, GetOwnFiles),
-	"/users/files/delete":    handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
-	"/users/files/download":  handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
-	"/users/files/upload":    handler(UserToken, GetUploadFileParams, UploadFile),
 	"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
 	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
 }
