@@ -39,6 +39,7 @@ type expectedFile struct {
 	description string
 }
 
+// TODO error codes should have rational meaning
 func TestAPI(t *testing.T) {
 	type to = testOptions
 	type m = map[string]interface{}
@@ -48,6 +49,7 @@ func TestAPI(t *testing.T) {
 	user3 := newUser("name", "name@example.com", uniqueID3, "12345678")
 	login0 := m{"unique_id": uniqueID0, "password": "12345678"}
 	login1 := m{"unique_id": uniqueID1, "password": "12345678"}
+	login2 := m{"unique_id": uniqueID2, "password": "12345678"}
 
 	t.Run("Empty site should not be initialized",
 		testEndpoint("/uninitialized", 200, to{}))
@@ -72,11 +74,13 @@ func TestAPI(t *testing.T) {
 	t.Run("Initialized site should not accept registers for duplicate emails",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user3}))
 
-	var token0, token1 string
+	var token0, token1, token2 string
 	t.Run("Initialized site should accept logins from admin",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login0, resToken: &token0}))
-	t.Run("Initialized site should accept logins from registered users",
+	t.Run("Initialized site should accept logins from registered user",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resToken: &token1}))
+	t.Run("Initialized site should accept logins from another registered user",
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resToken: &token2}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID1, role: ROLE_NONE},
@@ -111,26 +115,36 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("User should be able to upload files and get them renamed",
 		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("Another user should be able to upload files",
+		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+
 	t.Run("User should be able to get its files",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
-	t.Run("User deleted file should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_1.txt", "testfile_2.txt"}))
+	t.Run("User uploaded files should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_1.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to delete its files",
 		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=2"}))
 	t.Run("User deleted file should have disappeared",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
-	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
+	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to download its files",
 		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=1", fileContent: "file content\n"}))
 
-	// TODO "User should not be able to download deleted files"
-	// TODO "User should not be able to download another user files"
-	// TODO "User should not be able to delete another user files"
-	// TODO "Admin should be able to download another user files"
-	// TODO "Admin should be able to delete another user files"
+	t.Run("User should not be able to download deleted files",
+		testEndpoint("/users/files/download", 401, to{token: token1, query: "?id=2"}))
+	t.Run("User should not be able to download another user files",
+		testEndpoint("/users/files/download", 401, to{token: token1, query: "?id=4"}))
+	t.Run("User should not be able to delete another user files",
+		testEndpoint("/users/files/delete", 401, to{token: token1, query: "?id=4"}))
+
+	t.Run("Admin should be able to download another user files",
+		testEndpoint("/users/files/download", 200, to{token: token0, query: "?id=4", fileContent: "file content\n"}))
+	t.Run("Admin should be able to delete another user files",
+		testEndpoint("/users/files/delete", 200, to{token: token0, query: "?id=4"}))
+	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
