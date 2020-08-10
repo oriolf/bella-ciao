@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -110,12 +111,14 @@ func TestAPI(t *testing.T) {
 	t.Run("User should be able to get its files",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
+	t.Run("User deleted file should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_1.txt", "testfile_2.txt"}))
 
 	t.Run("User should be able to delete its files",
 		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=2"}))
-	t.Run("User deleted file should have disappeared", // TODO test also disappeared from uploads folder
+	t.Run("User deleted file should have disappeared",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
+	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
 
 	t.Run("User should be able to download its files",
 		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=1", fileContent: "file content\n"}))
@@ -255,6 +258,30 @@ LOOP:
 			}
 		}
 		t.Errorf("Expected user with unique ID %q, but none found.", e.uniqueID)
+	}
+}
+
+func checkUploadsFolder(expectedFiles []string) func(*testing.T) {
+	return func(t *testing.T) {
+		files, err := ioutil.ReadDir("uploads")
+		if err != nil {
+			t.Errorf("Could not read uploads dir: %s.", err)
+			return
+		}
+
+		if len(files) != len(expectedFiles) {
+			t.Errorf("Expected %d files, but got %d.", len(expectedFiles), len(files))
+		}
+
+	LOOP:
+		for _, e := range expectedFiles {
+			for _, f := range files {
+				if e == f.Name() {
+					continue LOOP
+				}
+			}
+			t.Errorf("Expected file in uploads with name %s, but found none", e)
+		}
 	}
 }
 
