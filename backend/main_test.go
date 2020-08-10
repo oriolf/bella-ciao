@@ -95,9 +95,12 @@ func TestAPI(t *testing.T) {
 
 	t.Run("Non-logged user cannot get files",
 		testEndpoint("/users/files/own", 401, to{}))
-	// TODO "Non-logged user cannot upload files"
-	// TODO "Non-logged user cannot delete files"
-	// TODO "Non-logged user cannot download files"
+	t.Run("Non-logged user cannot upload files",
+		testEndpoint("/users/files/upload", 401, to{file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("Non-logged user cannot delete files",
+		testEndpoint("/users/files/delete", 401, to{query: "?id=1"}))
+	t.Run("Non-logged user cannot download files",
+		testEndpoint("/users/files/download", 401, to{query: "?id=1"}))
 
 	t.Run("User should not have any files at first",
 		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{}}))
