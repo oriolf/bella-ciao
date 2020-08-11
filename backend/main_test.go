@@ -158,7 +158,15 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-admin user should not be able to add messages",
 		testEndpoint("/users/messages/add", 401, to{token: token2, params: m{"user_id": 2, "content": "message content"}}))
 	t.Run("Admin user should be able to add messages",
-		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content"}}))
+		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content user 2"}}))
+	t.Run("Admin user should be able to add messages",
+		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content user 2"}}))
+	t.Run("Admin user should be able to add messages",
+		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 3, "content": "message content user 3"}}))
+
+	t.Run("List of unvalidated users should contain messages",
+		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+			{uniqueID: uniqueID2, messages: []string{"message content user 2", "message content user 2"}}, {uniqueID: uniqueID3, messages: []string{"message content user 3"}}}}))
 
 	// "Non-logged user should not be able to get messages"
 	// "Logged user should get its own messages"

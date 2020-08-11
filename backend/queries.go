@@ -187,7 +187,7 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 
 func scanUnvalidatedUser(rows *sql.Rows) (interface{}, error) {
 	var u unvalidatedUser
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.FileID, &u.FileDescription)
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.FileID, &u.FileDescription, &u.MessageID, &u.MessageContent, &u.MessageSolved)
 	return u, err
 }
 
@@ -295,12 +295,16 @@ type unvalidatedUser struct {
 	Email           string
 	FileID          *int
 	FileDescription *string
+	MessageID       *int
+	MessageContent  *string
+	MessageSolved   *bool
 }
 
 // TODO get also user messages
 func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
-	query := `SELECT users.id, users.unique_id, users.name, users.email, files.id, files.description 
+	query := `SELECT users.id, users.unique_id, users.name, users.email, files.id, files.description, messages.id, messages.content, messages.solved
 	FROM users LEFT JOIN files ON users.id=files.user_id 
+	LEFT JOIN messages ON users.id=messages.user_id
 	WHERE users.role == 'none';`
 
 	res, err := queryDB(db, scanUnvalidatedUser, query)
@@ -320,7 +324,14 @@ func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
 			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name}
 		}
 		if y.FileID != nil && y.FileDescription != nil {
-			u.Files = append(u.Files, UserFile{ID: *y.FileID, Description: *y.FileDescription})
+			if missingFile(*y.FileID, u.Files) {
+				u.Files = append(u.Files, UserFile{ID: *y.FileID, Description: *y.FileDescription})
+			}
+		}
+		if y.MessageID != nil && y.MessageContent != nil && y.MessageSolved != nil {
+			if missingMessage(*y.MessageID, u.Messages) {
+				u.Messages = append(u.Messages, UserMessage{ID: *y.MessageID, Content: *y.MessageContent, Solved: *y.MessageSolved})
+			}
 		}
 		m[y.ID] = u
 	}
@@ -330,6 +341,24 @@ func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
 	}
 
 	return users, nil
+}
+
+func missingFile(fileID int, files []UserFile) bool {
+	for _, x := range files {
+		if x.ID == fileID {
+			return false
+		}
+	}
+	return true
+}
+
+func missingMessage(messageID int, messages []UserMessage) bool {
+	for _, x := range messages {
+		if x.ID == messageID {
+			return false
+		}
+	}
+	return true
 }
 
 func getFilename(db *sql.DB, id int) (name string, err error) {
