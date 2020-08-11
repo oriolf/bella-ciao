@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -32,6 +33,7 @@ type testOptions struct {
 type expectedUser struct {
 	uniqueID string
 	role     string
+	messages []string
 }
 
 type expectedFile struct {
@@ -40,16 +42,17 @@ type expectedFile struct {
 }
 
 // TODO error codes should have rational meaning
+// TODO HTTP methods should have rational meaning
 func TestAPI(t *testing.T) {
 	type to = testOptions
 	type m = map[string]interface{}
-	uniqueID0, uniqueID1, uniqueID2, uniqueID3 := "00000000T", "11111111H", "22222222J", "33333333P"
-	user1 := newUser("name", "name@example.com", uniqueID1, "12345678")
-	user2 := newUser("name", "name2@example.com", uniqueID2, "12345678")
-	user3 := newUser("name", "name@example.com", uniqueID3, "12345678")
-	login0 := m{"unique_id": uniqueID0, "password": "12345678"}
+	uniqueID1, uniqueID2, uniqueID3, uniqueID4 := "00000000T", "11111111H", "22222222J", "33333333P"
+	user2 := newUser("name", "name@example.com", uniqueID2, "12345678")
+	user3 := newUser("name", "name2@example.com", uniqueID3, "12345678")
+	user4 := newUser("name", "name@example.com", uniqueID4, "12345678")
 	login1 := m{"unique_id": uniqueID1, "password": "12345678"}
 	login2 := m{"unique_id": uniqueID2, "password": "12345678"}
+	login3 := m{"unique_id": uniqueID3, "password": "12345678"}
 
 	// Initialization and registers
 
@@ -57,37 +60,37 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/uninitialized", 200, to{}))
 
 	t.Run("Uninitialized site should reject registers",
-		testEndpoint("/auth/register", 401, to{method: "POST", params: user1}))
+		testEndpoint("/auth/register", 401, to{method: "POST", params: user2}))
 
 	t.Run("Uninitialized site should reject logins",
-		testEndpoint("/auth/login", 401, to{method: "POST", params: login1}))
+		testEndpoint("/auth/login", 401, to{method: "POST", params: login2}))
 
-	admin := newUser("admin", "admin@example.com", uniqueID0, "12345678")
+	admin := newUser("admin", "admin@example.com", uniqueID1, "12345678")
 	election := newElection("election", "borda", time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour), 2, 5)
 	t.Run("Empty site can be initialized",
 		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
 
 	t.Run("Initialized site should accept registers",
-		testEndpoint("/auth/register", 200, to{method: "POST", params: user1}))
-
-	t.Run("Initialized site should accept registers",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user2}))
 
-	t.Run("Initialized site should not accept registers for duplicate emails",
-		testEndpoint("/auth/register", 500, to{method: "POST", params: user3}))
+	t.Run("Initialized site should accept registers",
+		testEndpoint("/auth/register", 200, to{method: "POST", params: user3}))
 
-	var token0, token1, token2 string
+	t.Run("Initialized site should not accept registers for duplicate emails",
+		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
+
+	var token1, token2, token3 string
 	t.Run("Initialized site should accept logins from admin",
-		testEndpoint("/auth/login", 200, to{method: "POST", params: login0, resToken: &token0}))
-	t.Run("Initialized site should accept logins from registered user",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resToken: &token1}))
-	t.Run("Initialized site should accept logins from another registered user",
+	t.Run("Initialized site should accept logins from registered user",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resToken: &token2}))
+	t.Run("Initialized site should accept logins from another registered user",
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resToken: &token3}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
-		{uniqueID: uniqueID1, role: ROLE_NONE},
 		{uniqueID: uniqueID2, role: ROLE_NONE},
-		{uniqueID: uniqueID0, role: ROLE_ADMIN}}))
+		{uniqueID: uniqueID3, role: ROLE_NONE},
+		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
 	// User files management
 
@@ -101,56 +104,75 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/download", 401, to{query: "?id=1"}))
 
 	t.Run("User should not have any files at first",
-		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{}}))
+		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{}}))
 
 	t.Run("User should be able to upload files",
-		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
-	t.Run("User should be able to upload files and get them renamed",
-		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
-	t.Run("User should be able to upload files and get them renamed",
-		testEndpoint("/users/files/upload", 200, to{token: token1, file: expectedFile{description: "file", name: "testfile.txt"}}))
-	t.Run("Another user should be able to upload files",
 		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should be able to upload files and get them renamed",
+		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should be able to upload files and get them renamed",
+		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("Another user should be able to upload files",
+		testEndpoint("/users/files/upload", 200, to{token: token3, file: expectedFile{description: "file", name: "testfile.txt"}}))
 
 	t.Run("User should be able to get its files",
-		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
+		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
 	t.Run("User uploaded files should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_1.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to delete its files",
-		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=2"}))
+		testEndpoint("/users/files/delete", 200, to{token: token2, query: "?id=2"}))
 	t.Run("User deleted file should have disappeared",
-		testEndpoint("/users/files/own", 200, to{token: token1, expectedFiles: []expectedFile{
+		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
 	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to download its files",
-		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=1", fileContent: "file content\n"}))
+		testEndpoint("/users/files/download", 200, to{token: token2, query: "?id=1", fileContent: "file content\n"}))
 
 	t.Run("User should not be able to download deleted files",
-		testEndpoint("/users/files/download", 401, to{token: token1, query: "?id=2"}))
-	t.Run("User should not be able to download another user files",
-		testEndpoint("/users/files/download", 401, to{token: token1, query: "?id=4"}))
-	t.Run("User should not be able to delete another user files",
-		testEndpoint("/users/files/delete", 401, to{token: token1, query: "?id=4"}))
+		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=2"}))
+	t.Run("User should not be able to download another user's files",
+		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=4"}))
+	t.Run("User should not be able to delete another user's files",
+		testEndpoint("/users/files/delete", 401, to{token: token2, query: "?id=4"}))
 
-	t.Run("Admin should be able to download another user files",
-		testEndpoint("/users/files/download", 200, to{token: token0, query: "?id=4", fileContent: "file content\n"}))
-	t.Run("Admin should be able to delete another user files",
-		testEndpoint("/users/files/delete", 200, to{token: token0, query: "?id=4"}))
+	t.Run("Admin should be able to download another user's files",
+		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=4", fileContent: "file content\n"}))
+	t.Run("Admin should be able to delete another user's files",
+		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=4"}))
 	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
 
 	// User validation, including validation messages
 
 	t.Run("Non-logged user should not get list of unvalidated users",
 		testEndpoint("/users/unvalidated/get", 401, to{}))
-
 	t.Run("Non-admin user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{token: token1}))
-
+		testEndpoint("/users/unvalidated/get", 401, to{token: token2}))
 	t.Run("Admin user should get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 200, to{token: token0, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID1}, {uniqueID: uniqueID2}}}))
+		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}}}))
+
+	t.Run("Non-logged user should not be able to add messages",
+		testEndpoint("/users/messages/add", 401, to{params: m{"user_id": 2, "content": "message content"}}))
+	t.Run("Non-admin user should not be able to add messages",
+		testEndpoint("/users/messages/add", 401, to{token: token2, params: m{"user_id": 2, "content": "message content"}}))
+	t.Run("Admin user should be able to add messages",
+		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content"}}))
+
+	// "Non-logged user should not be able to get messages"
+	// "Logged user should get its own messages"
+
+	// "Non-logged user should not be able to solve messages"
+	// "Logged user should be able to solve messages its messages"
+	// "Logged user should not be able to solve another user's messages"
+	// "Admin user should be able to solve another user's messages"
+	// check again which messages remain
+
+	// Non-logged user should not be able to validate users
+	// Non-admin user should not be able to validate users
+	// Admin user should be able to validate users
+	// check app state again to see the validated user
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -277,11 +299,34 @@ LOOP:
 				if e.role != u.Role {
 					t.Errorf("Expected user with unique ID %q to have role %q, but has role %q.", e.uniqueID, e.role, u.Role)
 				}
+				if !messagesEqual(e.messages, u.Messages) {
+					t.Errorf("Wrong messages found in user with unique ID %q. Expected %v, got %v.", e.uniqueID, e.messages, u.Messages)
+				}
 				continue LOOP
 			}
 		}
 		t.Errorf("Expected user with unique ID %q, but none found.", e.uniqueID)
 	}
+}
+
+func messagesEqual(expected []string, got []UserMessage) bool {
+	if len(expected) != len(got) {
+		return false
+	}
+
+	var gotStrings []string
+	for _, x := range got {
+		gotStrings = append(gotStrings, x.Content)
+	}
+	sort.Strings(expected)
+	sort.Strings(gotStrings)
+	for i := range expected {
+		if expected[i] != gotStrings[i] {
+			return false
+		}
+	}
+
+	return true
 }
 
 func checkUploadsFolder(expectedFiles []string) func(*testing.T) {

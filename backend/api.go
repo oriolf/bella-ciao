@@ -16,6 +16,8 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
+var errDataMissing = errors.New("needed data missing")
+
 type initializeParams struct {
 	Admin    registerParams `json:"admin"`
 	Election electionParams `json:"election"`
@@ -41,6 +43,11 @@ type fileUploadParams struct {
 	content     []byte
 	filename    string
 	description string
+}
+
+type messageParams struct {
+	UserID  int    `json:"user_id"`
+	Content string `json:"content"`
 }
 
 func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
@@ -151,7 +158,7 @@ func GetInitializeParams(r *http.Request) (interface{}, error) {
 	var invalidRegister bool
 	params.Admin, invalidRegister = invalidRegisterParams(params.Admin)
 	if invalidRegister || invalidElectionParams(params.Election) {
-		return nil, errors.New("needed data missing")
+		return nil, errDataMissing
 	}
 
 	return params, nil
@@ -213,7 +220,20 @@ func GetRegisterParams(r *http.Request) (interface{}, error) {
 
 	params, invalid := invalidRegisterParams(params)
 	if invalid {
-		return nil, errors.New("needed data missing")
+		return nil, errDataMissing
+	}
+
+	return params, nil
+}
+
+func GetMessageParams(r *http.Request) (interface{}, error) {
+	var params messageParams
+	if err := GetParams(r, &params); err != nil {
+		return nil, err
+	}
+
+	if params.UserID == 0 || params.Content == "" {
+		return nil, errDataMissing
 	}
 
 	return params, nil
@@ -245,7 +265,7 @@ func GetLoginParams(r *http.Request) (interface{}, error) {
 	}
 
 	if params.UniqueID == "" || params.Password == "" {
-		return nil, errors.New("needed data missing")
+		return nil, errDataMissing
 	}
 
 	return params, nil
@@ -349,7 +369,7 @@ func GetCandidateParams(r *http.Request) (interface{}, error) {
 	}
 
 	if params.Name == "" || params.Presentation == "" {
-		return nil, errors.New("needed data missing")
+		return nil, errDataMissing
 	}
 
 	return params, nil
@@ -458,6 +478,15 @@ func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
+func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	params, _ := p.(messageParams)
+	if err := addMessage(db, UserMessage{UserID: params.UserID, Content: params.Content}); err != nil {
+		return fmt.Errorf("could not add message to db: %w", err)
+	}
+
+	return nil
+}
+
 func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	messageID, ok := p.(int)
 	if !ok {
@@ -469,6 +498,10 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	}
 
 	return nil
+}
+
+func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	return errors.New("not implemented")
 }
 
 func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {

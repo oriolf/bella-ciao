@@ -151,6 +151,12 @@ func AddCandidate(db *sql.DB, c Candidate) error {
 	return err
 }
 
+func addMessage(db *sql.DB, m UserMessage) error {
+	query := "INSERT INTO messages (user_id, content, solved) VALUES (?, ?, 0);"
+	_, err := db.Exec(query, m.UserID, m.Content)
+	return err
+}
+
 func solveMessage(db *sql.DB, messageID int) error {
 	_, err := db.Exec("UPDATE messages SET solved=1 WHERE id=?;", messageID)
 	return err

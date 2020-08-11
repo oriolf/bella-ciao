@@ -22,19 +22,21 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/auth/login":    handler(NoToken, GetLoginParams, Login),
 	"/auth/refresh":  handler(UserToken, noParams, Refresh),
 
-	// TODO test group
-	"/elections/get":  handler(NoToken, noParams, GetElectionsHandler),
-	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
-	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),
-
 	"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
 	"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
 	"/users/files/download": handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
 	"/users/files/upload":   handler(UserToken, GetUploadFileParams, UploadFile),
 
 	"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsersHandler),
+	"/users/messages/add":    handler(AdminToken, GetMessageParams, AddMessage),
 	"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
 	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
+	"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
+
+	// TODO test group
+	"/elections/get":  handler(NoToken, noParams, GetElectionsHandler),
+	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
+	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),
 }
 
 func main() {
