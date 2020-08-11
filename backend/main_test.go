@@ -47,7 +47,7 @@ type expectedFile struct {
 func TestAPI(t *testing.T) {
 	type to = testOptions
 	type m = map[string]interface{}
-	uniqueID1, uniqueID2, uniqueID3, uniqueID4 := "00000000T", "11111111H", "22222222J", "33333333P"
+	uniqueID1, uniqueID2, uniqueID3, uniqueID4 := "11111111H", "22222222J", "33333333P", "44444444A"
 	user2 := newUser("name", "name@example.com", uniqueID2, "12345678")
 	user3 := newUser("name", "name2@example.com", uniqueID3, "12345678")
 	user4 := newUser("name", "name@example.com", uniqueID4, "12345678")
@@ -189,10 +189,21 @@ func TestAPI(t *testing.T) {
 	t.Run("Validated messages should not appear",
 		testEndpoint("/users/messages/own", 200, to{token: token3, expectedUnsolvedMessages: []string{}}))
 
-	// Non-logged user should not be able to validate users
-	// Non-admin user should not be able to validate users
-	// Admin user should be able to validate users
-	// check app state again to see the validated user
+	t.Run("Non-logged user should not be able to validate users",
+		testEndpoint("/users/validate", 401, to{query: "?id=2"}))
+	t.Run("Non-admin user should not be able to validate users",
+		testEndpoint("/users/validate", 401, to{token: token2, query: "?id=2"}))
+	t.Run("Admin user should be able to validate users",
+		testEndpoint("/users/validate", 200, to{token: token1, query: "?id=2"}))
+
+	t.Run("Check APP State", checkAppState([]expectedUser{
+		{uniqueID: uniqueID3, role: ROLE_NONE},
+		{uniqueID: uniqueID2, role: ROLE_VALIDATED},
+		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
+
+	// Admin user should get list of validated users
+
+	// TODO check also what happens when validating unexisting, already validated, or admin users
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {

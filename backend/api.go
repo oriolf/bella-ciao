@@ -501,7 +501,12 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 }
 
 func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	return errors.New("not implemented")
+	userID, _ := p.(int)
+	if err := validateUser(db, userID); err != nil {
+		return fmt.Errorf("could not validate user: %w", err)
+	}
+
+	return nil
 }
 
 func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {

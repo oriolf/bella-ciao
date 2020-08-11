@@ -162,6 +162,11 @@ func solveMessage(db *sql.DB, messageID int) error {
 	return err
 }
 
+func validateUser(db *sql.DB, userID int) error {
+	_, err := db.Exec("UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
+	return err
+}
+
 func insertFile(db *sql.DB, file UserFile) error {
 	_, err := db.Exec("INSERT INTO files (user_id, name, description) VALUES (?, ?, ?);",
 		file.UserID, file.Name, file.Description)
