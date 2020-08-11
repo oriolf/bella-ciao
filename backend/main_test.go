@@ -24,10 +24,11 @@ type testOptions struct {
 	token    string
 	resToken *string
 
-	file          expectedFile
-	fileContent   string
-	expectedUsers []expectedUser
-	expectedFiles []expectedFile
+	file             expectedFile
+	fileContent      string
+	expectedUsers    []expectedUser
+	expectedFiles    []expectedFile
+	expectedMessages []string
 }
 
 type expectedUser struct {
@@ -168,11 +169,13 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID2, messages: []string{"message content user 2", "message content user 2"}}, {uniqueID: uniqueID3, messages: []string{"message content user 3"}}}}))
 
-	// "Non-logged user should not be able to get messages"
-	// "Logged user should get its own messages"
+	t.Run("Non-logged user should not be able to get messages",
+		testEndpoint("/users/messages/own", 401, to{}))
+	t.Run("Logged user should get its own messages",
+		testEndpoint("/users/messages/own", 200, to{token: token2, expectedMessages: []string{"message content user 2", "message content user 2"}}))
 
 	// "Non-logged user should not be able to solve messages"
-	// "Logged user should be able to solve messages its messages"
+	// "Logged user should be able to solve its messages"
 	// "Logged user should not be able to solve another user's messages"
 	// "Admin user should be able to solve another user's messages"
 	// check again which messages remain
@@ -272,6 +275,15 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 		}
 
+		if options.expectedMessages != nil {
+			var messages []UserMessage
+			if err := json.Unmarshal([]byte(rr.Body.String()), &messages); err != nil {
+				t.Errorf("Could not unmarshal expected messages response: %s", err)
+			} else {
+				compareMessages(t, options.expectedMessages, messages)
+			}
+		}
+
 		if options.fileContent != "" && options.fileContent != rr.Body.String() {
 			t.Errorf("Wrong file contents. Expected %q but found %q.", options.fileContent, rr.Body.String())
 		}
@@ -307,9 +319,7 @@ LOOP:
 				if e.role != u.Role {
 					t.Errorf("Expected user with unique ID %q to have role %q, but has role %q.", e.uniqueID, e.role, u.Role)
 				}
-				if !messagesEqual(e.messages, u.Messages) {
-					t.Errorf("Wrong messages found in user with unique ID %q. Expected %v, got %v.", e.uniqueID, e.messages, u.Messages)
-				}
+				compareMessages(t, e.messages, u.Messages)
 				continue LOOP
 			}
 		}
@@ -317,9 +327,10 @@ LOOP:
 	}
 }
 
-func messagesEqual(expected []string, got []UserMessage) bool {
+func compareMessages(t *testing.T, expected []string, got []UserMessage) {
 	if len(expected) != len(got) {
-		return false
+		t.Errorf("Expected %d messages, but got %d.", len(expected), len(got))
+		return
 	}
 
 	var gotStrings []string
@@ -330,11 +341,9 @@ func messagesEqual(expected []string, got []UserMessage) bool {
 	sort.Strings(gotStrings)
 	for i := range expected {
 		if expected[i] != gotStrings[i] {
-			return false
+			t.Errorf("Expected %d message to be %q, but got %q.", i, expected[i], gotStrings[i])
 		}
 	}
-
-	return true
 }
 
 func checkUploadsFolder(expectedFiles []string) func(*testing.T) {
