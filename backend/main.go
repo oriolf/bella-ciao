@@ -28,6 +28,7 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/users/files/upload":   handler(UserToken, GetUploadFileParams, UploadFile),
 
 	"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsers),
+	"/users/validated/get":   handler(AdminToken, noParams, GetValidatedUsers),
 	"/users/messages/add":    handler(AdminToken, GetMessageParams, AddMessage),
 	"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
 	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),

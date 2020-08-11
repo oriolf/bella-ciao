@@ -390,7 +390,15 @@ func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 }
 
 func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	users, err := getUnvalidatedUsers(db)
+	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
+}
+
+func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	return GetUsers(w, db, token, claims, p, "users.role != 'none'")
+}
+
+func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}, where string) error {
+	users, err := getUsers(db, where)
 	if err != nil {
 		return fmt.Errorf("could not get users from db: %w", err)
 	}

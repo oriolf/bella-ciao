@@ -190,9 +190,9 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 	return c, err
 }
 
-func scanUnvalidatedUser(rows *sql.Rows) (interface{}, error) {
-	var u unvalidatedUser
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.FileID, &u.FileDescription, &u.MessageID, &u.MessageContent, &u.MessageSolved)
+func scanQueriedUser(rows *sql.Rows) (interface{}, error) {
+	var u queriedUser
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.FileID, &u.FileDescription, &u.MessageID, &u.MessageContent, &u.MessageSolved)
 	return u, err
 }
 
@@ -293,11 +293,12 @@ func getAllUsers(db *sql.DB) (users []User, err error) {
 	return users, nil
 }
 
-type unvalidatedUser struct {
+type queriedUser struct {
 	ID              int
 	UniqueID        string
 	Name            string
 	Email           string
+	Role            string
 	FileID          *int
 	FileDescription *string
 	MessageID       *int
@@ -306,20 +307,20 @@ type unvalidatedUser struct {
 }
 
 // TODO get also user messages
-func getUnvalidatedUsers(db *sql.DB) (users []User, err error) {
-	query := `SELECT users.id, users.unique_id, users.name, users.email, files.id, files.description, messages.id, messages.content, messages.solved
+func getUsers(db *sql.DB, where string) (users []User, err error) {
+	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, files.id, files.description, messages.id, messages.content, messages.solved
 	FROM users LEFT JOIN files ON users.id=files.user_id 
 	LEFT JOIN messages ON users.id=messages.user_id
-	WHERE users.role == 'none';`
+	WHERE %s;`, where)
 
-	res, err := queryDB(db, scanUnvalidatedUser, query)
+	res, err := queryDB(db, scanQueriedUser, query)
 	if err != nil {
 		return nil, fmt.Errorf("could not query db: %w", err)
 	}
 
 	m := make(map[int]User)
 	for _, x := range res {
-		y, ok := x.(unvalidatedUser)
+		y, ok := x.(queriedUser)
 		if !ok {
 			continue
 		}

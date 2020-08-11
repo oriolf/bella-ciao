@@ -189,6 +189,9 @@ func TestAPI(t *testing.T) {
 	t.Run("Validated messages should not appear",
 		testEndpoint("/users/messages/own", 200, to{token: token3, expectedUnsolvedMessages: []string{}}))
 
+	t.Run("The only validated user should be admin",
+		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{{uniqueID: uniqueID1}}}))
+
 	t.Run("Non-logged user should not be able to validate users",
 		testEndpoint("/users/validate", 401, to{query: "?id=2"}))
 	t.Run("Non-admin user should not be able to validate users",
@@ -201,7 +204,9 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID2, role: ROLE_VALIDATED},
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
-	// Admin user should get list of validated users
+	t.Run("There should be two validated users",
+		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
 
 	// TODO check also what happens when validating unexisting, already validated, or admin users
 }
