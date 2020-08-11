@@ -24,17 +24,17 @@ type testOptions struct {
 	token    string
 	resToken *string
 
-	file             expectedFile
-	fileContent      string
-	expectedUsers    []expectedUser
-	expectedFiles    []expectedFile
-	expectedMessages []string
+	file                     expectedFile
+	fileContent              string
+	expectedUsers            []expectedUser
+	expectedFiles            []expectedFile
+	expectedUnsolvedMessages []string
 }
 
 type expectedUser struct {
-	uniqueID string
-	role     string
-	messages []string
+	uniqueID         string
+	role             string
+	unsolvedMessages []string
 }
 
 type expectedFile struct {
@@ -167,18 +167,27 @@ func TestAPI(t *testing.T) {
 
 	t.Run("List of unvalidated users should contain messages",
 		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID2, messages: []string{"message content user 2", "message content user 2"}}, {uniqueID: uniqueID3, messages: []string{"message content user 3"}}}}))
+			{uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2", "message content user 2"}},
+			{uniqueID: uniqueID3, unsolvedMessages: []string{"message content user 3"}}}}))
 
 	t.Run("Non-logged user should not be able to get messages",
 		testEndpoint("/users/messages/own", 401, to{}))
 	t.Run("Logged user should get its own messages",
-		testEndpoint("/users/messages/own", 200, to{token: token2, expectedMessages: []string{"message content user 2", "message content user 2"}}))
+		testEndpoint("/users/messages/own", 200, to{token: token2, expectedUnsolvedMessages: []string{"message content user 2", "message content user 2"}}))
 
-	// "Non-logged user should not be able to solve messages"
-	// "Logged user should be able to solve its messages"
-	// "Logged user should not be able to solve another user's messages"
-	// "Admin user should be able to solve another user's messages"
-	// check again which messages remain
+	t.Run("Non-logged user should not be able to solve messages",
+		testEndpoint("/users/messages/solve", 401, to{query: "?id=1"}))
+	t.Run("Logged user should be able to solve its messages",
+		testEndpoint("/users/messages/solve", 200, to{token: token2, query: "?id=1"}))
+	t.Run("Logged user should not be able to solve another user's messages",
+		testEndpoint("/users/messages/solve", 401, to{token: token2, query: "?id=3"}))
+	t.Run("Admin user should be able to solve another user's messages",
+		testEndpoint("/users/messages/solve", 200, to{token: token1, query: "?id=3"}))
+
+	t.Run("Validated messages should not appear",
+		testEndpoint("/users/messages/own", 200, to{token: token2, expectedUnsolvedMessages: []string{"message content user 2"}}))
+	t.Run("Validated messages should not appear",
+		testEndpoint("/users/messages/own", 200, to{token: token3, expectedUnsolvedMessages: []string{}}))
 
 	// Non-logged user should not be able to validate users
 	// Non-admin user should not be able to validate users
@@ -275,12 +284,12 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 		}
 
-		if options.expectedMessages != nil {
+		if options.expectedUnsolvedMessages != nil {
 			var messages []UserMessage
 			if err := json.Unmarshal([]byte(rr.Body.String()), &messages); err != nil {
 				t.Errorf("Could not unmarshal expected messages response: %s", err)
 			} else {
-				compareMessages(t, options.expectedMessages, messages)
+				compareMessages(t, options.expectedUnsolvedMessages, messages)
 			}
 		}
 
@@ -319,7 +328,7 @@ LOOP:
 				if e.role != u.Role {
 					t.Errorf("Expected user with unique ID %q to have role %q, but has role %q.", e.uniqueID, e.role, u.Role)
 				}
-				compareMessages(t, e.messages, u.Messages)
+				compareMessages(t, e.unsolvedMessages, u.Messages)
 				continue LOOP
 			}
 		}
@@ -328,15 +337,18 @@ LOOP:
 }
 
 func compareMessages(t *testing.T, expected []string, got []UserMessage) {
-	if len(expected) != len(got) {
-		t.Errorf("Expected %d messages, but got %d.", len(expected), len(got))
+	var gotStrings []string
+	for _, x := range got {
+		if !x.Solved {
+			gotStrings = append(gotStrings, x.Content)
+		}
+	}
+
+	if len(expected) != len(gotStrings) {
+		t.Errorf("Expected %d messages, but got %d.", len(expected), len(gotStrings))
 		return
 	}
 
-	var gotStrings []string
-	for _, x := range got {
-		gotStrings = append(gotStrings, x.Content)
-	}
 	sort.Strings(expected)
 	sort.Strings(gotStrings)
 	for i := range expected {
