@@ -418,7 +418,6 @@ func GetUploadFileParams(r *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("could not read file: %w", err)
 	}
 
-	// TODO include also description
 	return fileUploadParams{
 		filename:    handler.Filename,
 		content:     b,

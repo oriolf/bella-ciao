@@ -42,6 +42,7 @@ type expectedFile struct {
 	description string
 }
 
+// TODO test some endpoints with bad params to check 400 responses
 // TODO error codes should have rational meaning
 // TODO HTTP methods should have rational meaning
 func TestAPI(t *testing.T) {
@@ -199,6 +200,13 @@ func TestAPI(t *testing.T) {
 	t.Run("Admin user should be able to validate users",
 		testEndpoint("/users/validate", 200, to{token: token1, query: "?id=2"}))
 
+	t.Run("Unexisting users cannot be validated",
+		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=999"}))
+	t.Run("Validated users cannot be validated again",
+		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=2"}))
+	t.Run("Admin users cannot be validated",
+		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=1"}))
+
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID3, role: ROLE_NONE},
 		{uniqueID: uniqueID2, role: ROLE_VALIDATED},
@@ -207,8 +215,6 @@ func TestAPI(t *testing.T) {
 	t.Run("There should be two validated users",
 		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
-
-	// TODO check also what happens when validating unexisting, already validated, or admin users
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {

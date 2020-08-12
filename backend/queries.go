@@ -163,8 +163,21 @@ func solveMessage(db *sql.DB, messageID int) error {
 }
 
 func validateUser(db *sql.DB, userID int) error {
-	_, err := db.Exec("UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
-	return err
+	res, err := db.Exec("UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
+	if err != nil {
+		return fmt.Errorf("could not execute update: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("could not count rows affected: %w", err)
+	}
+
+	if n != 1 {
+		return errors.New("no user updated")
+	}
+
+	return nil
 }
 
 func insertFile(db *sql.DB, file UserFile) error {
@@ -306,7 +319,6 @@ type queriedUser struct {
 	MessageSolved   *bool
 }
 
-// TODO get also user messages
 func getUsers(db *sql.DB, where string) (users []User, err error) {
 	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, files.id, files.description, messages.id, messages.content, messages.solved
 	FROM users LEFT JOIN files ON users.id=files.user_id 
