@@ -236,7 +236,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Logged users should be able to get candidates",
 		testEndpoint("/candidates/get", 200, to{token: token2, expectedCandidates: []Candidate{candidate1, candidate2}}))
 
-	// TODO check images are uploaded and saved correctly
+	t.Run("Candidate images should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "candidate.jpg", "candidate_1.jpg"}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -440,7 +440,7 @@ func compareMessages(t *testing.T, expected []string, got []UserMessage) {
 
 func checkUploadsFolder(expectedFiles []string) func(*testing.T) {
 	return func(t *testing.T) {
-		files, err := ioutil.ReadDir("uploads")
+		files, err := ioutil.ReadDir(UPLOADS_FOLDER)
 		if err != nil {
 			t.Errorf("Could not read uploads dir: %s.", err)
 			return
