@@ -18,11 +18,12 @@ import (
 )
 
 type testOptions struct {
-	method   string
-	params   interface{}
-	query    string
-	token    string
-	resToken *string
+	method    string
+	params    interface{}
+	query     string
+	token     string
+	resToken  *string
+	candidate Candidate
 
 	file                     expectedFile
 	fileContent              string
@@ -217,17 +218,19 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
 
-	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation"}
-	candidate2 := Candidate{Name: "candidate 2", Presentation: "candidate 2 presentation"}
-	t.Run("Non-logged users should not be able to add candidates",
-		testEndpoint("/candidates/add", 401, to{params: candidate1}))
-	t.Run("Non-admin users should not be able to add candidates",
-		testEndpoint("/candidates/add", 401, to{token: token2, params: candidate1}))
-	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{token: token1, params: candidate1}))
-	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{token: token1, params: candidate2}))
+	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation", Image: "candidate.jpg"}
+	candidate2 := Candidate{Name: "candidate 2", Presentation: "candidate 2 presentation", Image: "candidate.jpg"}
 
+	t.Run("Non-logged users should not be able to add candidates",
+		testEndpoint("/candidates/add", 401, to{candidate: candidate1}))
+	t.Run("Non-admin users should not be able to add candidates",
+		testEndpoint("/candidates/add", 401, to{token: token2, candidate: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{token: token1, candidate: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{token: token1, candidate: candidate2}))
+
+	candidate2.Image = "candidate_1.jpg"
 	t.Run("Non-logged users should be able to get candidates",
 		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1, candidate2}}))
 	t.Run("Logged users should be able to get candidates",
@@ -281,9 +284,17 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			body = bytes.NewReader(b)
 			contentType = "application/json"
 		} else if options.file.name != "" {
-			body, contentType, err = fileUploadBody(options.file.name, map[string]string{"description": options.file.description})
+			body, contentType, err = fileUploadBody(options.file.name, "file", map[string]string{"description": options.file.description})
 			if err != nil {
 				t.Fatalf("[%d] Could not create file upload body for endpoint %q. Error: %s\n", i, path, err)
+			}
+		} else if options.candidate.Name != "" {
+			body, contentType, err = fileUploadBody(options.candidate.Image, "image", map[string]string{
+				"name":         options.candidate.Name,
+				"presentation": options.candidate.Presentation,
+			})
+			if err != nil {
+				t.Fatalf("[%d] Could not create candidate file upload body for endpoint %q. Error: %s\n", i, path, err)
 			}
 		}
 
@@ -389,6 +400,7 @@ LOOP:
 func compareCandidates(t *testing.T, expected, got []Candidate) {
 	if len(expected) != len(got) {
 		t.Errorf("Expected %d candidates, but got %d.", len(expected), len(got))
+		return
 	}
 
 	sort.Slice(expected, func(i, j int) bool { return expected[i].Name < expected[j].Name })
@@ -469,7 +481,7 @@ LOOP:
 	}
 }
 
-func fileUploadBody(filename string, params map[string]string) (io.Reader, string, error) {
+func fileUploadBody(filename string, fileField string, params map[string]string) (io.Reader, string, error) {
 	file, err := os.Open("../test/" + filename)
 	if err != nil {
 		return nil, "", err
@@ -478,7 +490,7 @@ func fileUploadBody(filename string, params map[string]string) (io.Reader, strin
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", filename)
+	part, err := writer.CreateFormFile(fileField, filename)
 	if err != nil {
 		return nil, "", err
 	}

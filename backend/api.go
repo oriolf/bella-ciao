@@ -360,19 +360,32 @@ type candidateParams struct {
 	Name         string
 	Presentation string
 	Image        string
+	ImageContent []byte
 }
 
 func GetCandidateParams(r *http.Request) (interface{}, error) {
-	var params candidateParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
+	file, handler, err := r.FormFile("image")
+	if err != nil {
+		return nil, fmt.Errorf("could not get file from form: %w", err)
+	}
+	defer file.Close()
+
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %w", err)
 	}
 
-	if params.Name == "" || params.Presentation == "" {
+	name, presentation := r.FormValue("name"), r.FormValue("presentation")
+	if name == "" || presentation == "" || handler.Filename == "" || len(b) == 0 {
 		return nil, errDataMissing
 	}
 
-	return params, nil
+	return candidateParams{
+		Name:         name,
+		Presentation: presentation,
+		Image:        handler.Filename,
+		ImageContent: b,
+	}, nil
 }
 
 func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
@@ -381,7 +394,17 @@ func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 		return errors.New("wrong params model")
 	}
 
-	err := addCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: params.Image})
+	f, filename, err := safeCreateFile(UPLOADS_FOLDER, params.Image)
+	if err != nil {
+		return fmt.Errorf("could not create file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(params.ImageContent); err != nil {
+		return fmt.Errorf("could not write to file: %w", err)
+	}
+
+	err = addCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: filename})
 	if err != nil {
 		return fmt.Errorf("could not add candidate: %w", err)
 	}
@@ -418,10 +441,15 @@ func GetUploadFileParams(r *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("could not read file: %w", err)
 	}
 
+	description := r.FormValue("description")
+	if handler.Filename == "" || len(b) == 0 || description == "" {
+		return nil, errDataMissing
+	}
+
 	return fileUploadParams{
 		filename:    handler.Filename,
 		content:     b,
-		description: r.FormValue("description"),
+		description: description,
 	}, nil
 }
 
