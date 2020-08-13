@@ -34,13 +34,13 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
 	"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
 
-	// TODO test group
 	"/candidates/get":    handler(NoToken, noParams, GetCandidates),
 	"/candidates/add":    handler(AdminToken, GetCandidateParams, AddCandidate),
 	"/candidates/delete": handler(AdminToken, IDParams, DeleteCandidate),
 
-	// TODO test group
-	"/elections/get": handler(NoToken, noParams, GetElections),
+	"/elections/get":     handler(NoToken, noParams, GetElections),
+	"/elections/publish": handler(AdminToken, IDParams, PublishElection),
+	// TODO implement and test /elections/update /elections/vote, etc.
 }
 
 func main() {

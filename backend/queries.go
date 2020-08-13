@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func InitDB(db *sql.DB) error {
@@ -140,6 +141,24 @@ func getElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	return elections, nil
 }
 
+func publishElection(db *sql.DB, electionID int) error {
+	res, err := db.Exec("UPDATE elections SET public=TRUE WHERE id=?;", electionID)
+	if err != nil {
+		return fmt.Errorf("could not execute update: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("could not count rows affected: %w", err)
+	}
+
+	if n != 1 {
+		return errors.New("no election updated")
+	}
+
+	return nil
+}
+
 func getCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
 	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
@@ -206,8 +225,23 @@ func deleteFile(db *sql.DB, fileID int) error {
 
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
-	err := rows.Scan(&e.ID, &e.Name, &e.Start, &e.End, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)
-	return e, err
+	var start, end string
+	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)
+	if err != nil {
+		return nil, fmt.Errorf("could not scan: %w", err)
+	}
+
+	e.Start, err = time.Parse(SQLITE_TIME_FORMAT, start)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse start: %w", err)
+	}
+
+	e.End, err = time.Parse(SQLITE_TIME_FORMAT, end)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse end: %w", err)
+	}
+
+	return e, nil
 }
 
 func scanCandidate(rows *sql.Rows) (interface{}, error) {

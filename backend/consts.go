@@ -1,6 +1,11 @@
 // TODO maybe some consts could be defined by environment variables
 package main
 
+import (
+	"strings"
+	"time"
+)
+
 const (
 	// ID_ represent types of identification documents used for a user's unique ID
 	ID_DNI      = "dni"      // spanish DNI
@@ -20,3 +25,9 @@ const (
 
 	UPLOADS_FOLDER = "uploads"
 )
+
+var SQLITE_TIME_FORMAT = ""
+
+func init() {
+	SQLITE_TIME_FORMAT = strings.Replace(time.RFC3339Nano, "T", " ", 1)
+}

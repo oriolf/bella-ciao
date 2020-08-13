@@ -331,6 +331,7 @@ func Refresh(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims
 }
 
 func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+
 	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
 		return fmt.Errorf("could not get elections: %w", err)
@@ -338,6 +339,19 @@ func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 
 	if err := WriteResult(w, elections); err != nil {
 		return fmt.Errorf("could not write response: %w", err)
+	}
+
+	return nil
+}
+
+func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	id, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	if err := publishElection(db, id); err != nil {
+		return fmt.Errorf("could not delete candidate: %w", err)
 	}
 
 	return nil

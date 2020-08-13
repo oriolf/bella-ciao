@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 type testOptions struct {
@@ -31,6 +33,7 @@ type testOptions struct {
 	expectedFiles            []expectedFile
 	expectedUnsolvedMessages []string
 	expectedCandidates       []Candidate
+	expectedElections        []Election
 }
 
 type expectedUser struct {
@@ -70,18 +73,18 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/auth/login", 401, to{method: "POST", params: login2}))
 
 	admin := newUser("admin", "admin@example.com", uniqueID1, "12345678")
-	election := newElection("election", "borda", time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour), 2, 5)
+	electionStart, electionEnd := time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour)
+	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
 	t.Run("Empty site can be initialized",
 		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
 
 	t.Run("Initialized site should accept registers",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user2}))
-
 	t.Run("Initialized site should accept registers",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user3}))
-
 	t.Run("Initialized site should not accept registers for duplicate emails",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
+	// Initialized site should not accept registers for non-accepted ID types
 
 	var token1, token2, token3 string
 	t.Run("Initialized site should accept logins from admin",
@@ -247,6 +250,28 @@ func TestAPI(t *testing.T) {
 	t.Run("Deleted candidate should not appear anymore",
 		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1}}))
 	t.Run("Deleted candidate image should not appear anymore", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "candidate.jpg"}))
+
+	candidate1.ID = 1
+	candidate1.ElectionID = 1
+	election.ID = 1
+	election.Candidates = []Candidate{candidate1}
+	t.Run("Non-logged user should be able to see any elections yet",
+		testEndpoint("/elections/get", 200, to{expectedElections: []Election{}}))
+	t.Run("Non-admin user should be able to see any elections yet",
+		testEndpoint("/elections/get", 200, to{token: token2, expectedElections: []Election{}}))
+	t.Run("Admin user should be able to see unpublished elections",
+		testEndpoint("/elections/get", 200, to{token: token1, expectedElections: []Election{election}}))
+
+	t.Run("Non-logged user should not be able to publish election",
+		testEndpoint("/elections/publish", 401, to{query: "?id=1"}))
+	t.Run("Non-admin user should not be able to publish election",
+		testEndpoint("/elections/publish", 401, to{token: token2, query: "?id=1"}))
+	t.Run("Admin user should be able to publish election",
+		testEndpoint("/elections/publish", 200, to{token: token1, query: "?id=1"}))
+
+	election.Public = true
+	t.Run("Non-logged user should be able to see elections",
+		testEndpoint("/elections/get", 200, to{expectedElections: []Election{election}}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -258,14 +283,14 @@ func newUser(name, email, uniqueID, password string) map[string]interface{} {
 	}
 }
 
-func newElection(name, countType string, start, end time.Time, minCandidates, maxCandidates int) map[string]interface{} {
-	return map[string]interface{}{
-		"name":           name,
-		"start":          start.Format(time.RFC3339Nano),
-		"end":            end.Format(time.RFC3339Nano),
-		"count_type":     countType,
-		"min_candidates": minCandidates,
-		"max_candidates": maxCandidates,
+func newElection(name, countType string, start, end time.Time, minCandidates, maxCandidates int) Election {
+	return Election{
+		Name:          name,
+		Start:         start,
+		End:           end,
+		CountType:     countType,
+		MinCandidates: minCandidates,
+		MaxCandidates: maxCandidates,
 	}
 }
 
@@ -364,6 +389,15 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 		}
 
+		if options.expectedElections != nil {
+			var elections []Election
+			if err := json.Unmarshal([]byte(rr.Body.String()), &elections); err != nil {
+				t.Errorf("Could not unmarshal expected messages response: %s", err)
+			} else {
+				compareElections(t, options.expectedElections, elections)
+			}
+		}
+
 		if options.fileContent != "" && options.fileContent != rr.Body.String() {
 			t.Errorf("Wrong file contents. Expected %q but found %q.", options.fileContent, rr.Body.String())
 		}
@@ -444,6 +478,19 @@ func compareMessages(t *testing.T, expected []string, got []UserMessage) {
 	for i := range expected {
 		if expected[i] != gotStrings[i] {
 			t.Errorf("Expected %d message to be %q, but got %q.", i, expected[i], gotStrings[i])
+		}
+	}
+}
+
+func compareElections(t *testing.T, expected []Election, got []Election) {
+	if len(expected) != len(got) {
+		t.Errorf("Expected %d elections, but got %d", len(expected), len(got))
+		return
+	}
+
+	if len(expected) > 0 {
+		if diff := cmp.Diff(expected, got); diff != "" {
+			t.Errorf("Expected no diff in elections, but got: %s.", diff)
 		}
 	}
 }
