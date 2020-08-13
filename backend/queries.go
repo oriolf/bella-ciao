@@ -145,9 +145,22 @@ func getCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
+func getCandidate(db *sql.DB, candidateID int) (Candidate, error) {
+	var c Candidate
+	err := db.QueryRow(`SELECT id, election_id, name, presentation, image 
+	FROM candidates WHERE id = ?;`, candidateID).Scan(
+		&c.ID, &c.ElectionID, &c.Name, &c.Presentation, &c.Image)
+	return c, err
+}
+
 func addCandidate(db *sql.DB, c Candidate) error {
 	query := "INSERT INTO candidates (election_id, name, presentation, image) VALUES (1, ?, ?, ?);"
 	_, err := db.Exec(query, c.Name, c.Presentation, c.Image)
+	return err
+}
+
+func deleteCandidate(db *sql.DB, id int) error {
+	_, err := db.Exec("DELETE FROM candidates WHERE id=?;", id)
 	return err
 }
 

@@ -412,6 +412,28 @@ func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
+func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	id, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	c, err := getCandidate(db, id)
+	if err != nil {
+		return fmt.Errorf("could not get candidate: %w", err)
+	}
+
+	if err := deleteCandidate(db, id); err != nil {
+		return fmt.Errorf("could not delete candidate: %w", err)
+	}
+
+	if err := os.Remove(filepath.Join(UPLOADS_FOLDER, c.Image)); err != nil {
+		return fmt.Errorf("could not delete candidate image: %w", err)
+	}
+
+	return nil
+}
+
 func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
 }

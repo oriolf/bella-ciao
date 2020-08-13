@@ -235,8 +235,18 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1, candidate2}}))
 	t.Run("Logged users should be able to get candidates",
 		testEndpoint("/candidates/get", 200, to{token: token2, expectedCandidates: []Candidate{candidate1, candidate2}}))
-
 	t.Run("Candidate images should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "candidate.jpg", "candidate_1.jpg"}))
+
+	t.Run("Non-logged users should not be able to delete candidates",
+		testEndpoint("/candidates/delete", 401, to{query: "?id=2"}))
+	t.Run("Non-admin users should not be able to delete candidates",
+		testEndpoint("/candidates/delete", 401, to{token: token2, query: "?id=2"}))
+	t.Run("Admin users should be able to delete candidates",
+		testEndpoint("/candidates/delete", 200, to{token: token1, query: "?id=2"}))
+
+	t.Run("Deleted candidate should not appear anymore",
+		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1}}))
+	t.Run("Deleted candidate image should not appear anymore", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "candidate.jpg"}))
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
