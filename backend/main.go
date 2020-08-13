@@ -35,11 +35,11 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 	"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
 
 	// TODO test group
-	"/candidates/get": handler(NoToken, noParams, GetCandidatesHandler),
-	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidateHandler),
+	"/candidates/get": handler(NoToken, noParams, GetCandidates),
+	"/candidates/add": handler(AdminToken, GetCandidateParams, AddCandidate),
 
 	// TODO test group
-	"/elections/get": handler(NoToken, noParams, GetElectionsHandler),
+	"/elections/get": handler(NoToken, noParams, GetElections),
 }
 
 func main() {

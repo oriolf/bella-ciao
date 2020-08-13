@@ -29,6 +29,7 @@ type testOptions struct {
 	expectedUsers            []expectedUser
 	expectedFiles            []expectedFile
 	expectedUnsolvedMessages []string
+	expectedCandidates       []Candidate
 }
 
 type expectedUser struct {
@@ -215,6 +216,24 @@ func TestAPI(t *testing.T) {
 	t.Run("There should be two validated users",
 		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
+
+	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation"}
+	candidate2 := Candidate{Name: "candidate 2", Presentation: "candidate 2 presentation"}
+	t.Run("Non-logged users should not be able to add candidates",
+		testEndpoint("/candidates/add", 401, to{params: candidate1}))
+	t.Run("Non-admin users should not be able to add candidates",
+		testEndpoint("/candidates/add", 401, to{token: token2, params: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{token: token1, params: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{token: token1, params: candidate2}))
+
+	t.Run("Non-logged users should be able to get candidates",
+		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1, candidate2}}))
+	t.Run("Logged users should be able to get candidates",
+		testEndpoint("/candidates/get", 200, to{token: token2, expectedCandidates: []Candidate{candidate1, candidate2}}))
+
+	// TODO check images are uploaded and saved correctly
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -297,6 +316,15 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 		}
 
+		if options.expectedCandidates != nil {
+			var candidates []Candidate
+			if err := json.Unmarshal([]byte(rr.Body.String()), &candidates); err != nil {
+				t.Errorf("Could not unmarshal expected candidates response: %s", err)
+			} else {
+				compareCandidates(t, options.expectedCandidates, candidates)
+			}
+		}
+
 		if options.expectedFiles != nil {
 			var files []UserFile
 			if err := json.Unmarshal([]byte(rr.Body.String()), &files); err != nil {
@@ -356,6 +384,24 @@ LOOP:
 		}
 		t.Errorf("Expected user with unique ID %q, but none found.", e.uniqueID)
 	}
+}
+
+func compareCandidates(t *testing.T, expected, got []Candidate) {
+	if len(expected) != len(got) {
+		t.Errorf("Expected %d candidates, but got %d.", len(expected), len(got))
+	}
+
+	sort.Slice(expected, func(i, j int) bool { return expected[i].Name < expected[j].Name })
+	sort.Slice(got, func(i, j int) bool { return got[i].Name < got[j].Name })
+	for i := range expected {
+		if !equalCandidates(expected[i], got[i]) {
+			t.Errorf("Expected user %v but got %v.", expected[i], got[i])
+		}
+	}
+}
+
+func equalCandidates(a, b Candidate) bool {
+	return a.Name == b.Name && a.Presentation == b.Presentation && a.Image == b.Image
 }
 
 func compareMessages(t *testing.T, expected []string, got []UserMessage) {

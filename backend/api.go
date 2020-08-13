@@ -330,8 +330,8 @@ func Refresh(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims
 	return nil
 }
 
-func GetElectionsHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
-	elections, err := GetElections(db, !IsAdmin(claims)) // all non-admin get only public elections
+func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
 		return fmt.Errorf("could not get elections: %w", err)
 	}
@@ -343,8 +343,8 @@ func GetElectionsHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, cl
 	return nil
 }
 
-func GetCandidatesHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
-	candidates, err := GetCandidates(db, 1)
+func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+	candidates, err := getCandidates(db, 1)
 	if err != nil {
 		return fmt.Errorf("could not get candidates: %w", err)
 	}
@@ -375,13 +375,13 @@ func GetCandidateParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func AddCandidateHandler(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	params, ok := p.(candidateParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
 
-	err := AddCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: params.Image})
+	err := addCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: params.Image})
 	if err != nil {
 		return fmt.Errorf("could not add candidate: %w", err)
 	}

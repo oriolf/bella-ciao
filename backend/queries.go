@@ -94,7 +94,7 @@ func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
 	return count, nil
 }
 
-func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
+func getElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	results, err := queryDB(db, scanElection, `
 		SELECT id, name, date_start, date_end, count_type, max_candidates, min_candidates, public 
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
@@ -140,12 +140,12 @@ func GetElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	return elections, nil
 }
 
-func GetCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
+func getCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
 	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
-func AddCandidate(db *sql.DB, c Candidate) error {
+func addCandidate(db *sql.DB, c Candidate) error {
 	query := "INSERT INTO candidates (election_id, name, presentation, image) VALUES (1, ?, ?, ?);"
 	_, err := db.Exec(query, c.Name, c.Presentation, c.Image)
 	return err
