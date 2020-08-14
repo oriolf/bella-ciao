@@ -20,7 +20,6 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 
 	"/auth/register": handler(NoToken, GetRegisterParams, Register),
 	"/auth/login":    handler(NoToken, GetLoginParams, Login),
-	"/auth/refresh":  handler(UserToken, noParams, Refresh),
 
 	"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
 	"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
@@ -40,27 +39,19 @@ var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 
 	"/elections/get":     handler(NoToken, noParams, GetElections),
 	"/elections/publish": handler(AdminToken, IDParams, PublishElection),
-	// TODO implement and test /elections/update /elections/vote, etc.
+	// TODO store allowed identification types and count methods as part of the initialization
+	// TODO validate (and test) that unique IDs and count methods are one of the allowed
+	// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
 }
 
 func main() {
-	initDB()
+	bootstrap()
 
-	if _, err := os.Stat(UPLOADS_FOLDER); err != nil {
-		if err := os.Mkdir(UPLOADS_FOLDER, 0755); err != nil {
-			log.Fatalln("Could not create uploads folder:", err)
-		}
-	}
-
-	for path, handler := range appHandlers {
-		http.HandleFunc(path, handler)
-	}
-
-	log.Println("Start listening...")
+	log.Println("Completed bootstrap, start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
 }
 
-func initDB() {
+func bootstrap() {
 	db, err := sql.Open("sqlite3", dbfile)
 	if err != nil {
 		log.Fatalln("Error during database connection:", err)
@@ -72,6 +63,16 @@ func initDB() {
 	}
 
 	checkInitialized(db)
+
+	if _, err := os.Stat(UPLOADS_FOLDER); err != nil {
+		if err := os.Mkdir(UPLOADS_FOLDER, 0755); err != nil {
+			log.Fatalln("Could not create uploads folder:", err)
+		}
+	}
+
+	for path, handler := range appHandlers {
+		http.HandleFunc(path, handler)
+	}
 }
 
 var initialized struct {

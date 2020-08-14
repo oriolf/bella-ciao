@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+start=$1
+end=$2
+
+echo "commit,tests pass,production loc,test loc,ratio test/prod,total todos,test coverage,go test time,total test time"
+run-command-on-git-revisions -v $start $end "test silent"

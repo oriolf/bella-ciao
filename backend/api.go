@@ -317,21 +317,7 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 	return nil
 }
 
-func Refresh(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	tokenString, err := GenerateToken(claims.User)
-	if err != nil {
-		return fmt.Errorf("could not generate token: %w", err)
-	}
-
-	if err := WriteResult(w, tokenString); err != nil {
-		return fmt.Errorf("could not write response: %w", err)
-	}
-
-	return nil
-}
-
 func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
-
 	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
 		return fmt.Errorf("could not get elections: %w", err)

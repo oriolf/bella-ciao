@@ -2,29 +2,48 @@
 
 set -e
 
+git_hash() {
+    git log -1 --pretty="%h"
+}
+
+todo_count() {
+    grep -ri "TODO" . --include="*.go" | wc -l
+}
+
+loc_prod() {
+    find . -name '*.go' -and -not -name '*_test.go' | xargs cat | wc -l
+}
+
+loc_test() {
+    find . -name '*_test.go' | xargs cat | wc -l
+}
+
 pass_fail() {
     echo "$1" | grep -P "PASS|FAIL"
 }
 
 coverage() {
-    echo "$1" | grep "coverage"
+    echo "$1" | grep "coverage" | cut -d ' ' -f 2
+}
+
+real_time() {
+    echo "$1" | grep real | cut -d ' ' -f 2
+}
+
+go_time() {
+    echo "$1" | grep "oriolf/bella-ciao" | sed "s/[[:space:]]/ /g" | tr -s ' ' | cut -d ' ' -f 3
 }
 
 (
-    trap "kill 0" EXIT
     cd ../backend
-    rm -f db.db
+    rm -f db.db cover.out
     rm -rf uploads
-    go install
-    bella-ciao &
-    go test -coverprofile cover.out
-#    go tool cover -html=cover.out
-#    rm cover.out
-#    oriol="$(go test -coverprofile cover.out)"
-#    echo "$oriol"
-#    echo "$(git rev-parse --short HEAD),$(pass_fail "$oriol"),$(coverage "$oriol")" >> stats.csv
-#   We want the following data for statistics:
-#   commit hash, total number of production code lines, total number of test code lines, ratio test lines/production lines, total number of TODOs, total test time, test time as said by
-#   go test, coverage, time to start the backend
-#   For the last one, use https://github.com/garybernhardt/destroy-all-software-extras/blob/master/das-0070-time-to-first-request/time_to_first_request.sh
+    if [[ "$1" == "silent" ]]; then
+        output="$( (time -p go test -coverprofile cover.out) 2>&1 )"
+    else
+        output="$( (time -p go test -coverprofile cover.out) 2>&1 | tee /dev/tty)"
+    fi
+    lp=$(loc_prod)
+    lt=$(loc_test)
+    echo "$(git_hash),$(pass_fail "$output"),$lp,$lt,$(echo "$lt / $lp" | bc -l),$(todo_count),$(coverage "$output"),$(go_time "$output"),$(real_time "$output")"
 )

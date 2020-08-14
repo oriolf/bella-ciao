@@ -51,6 +51,8 @@ type expectedFile struct {
 // TODO error codes should have rational meaning
 // TODO HTTP methods should have rational meaning
 func TestAPI(t *testing.T) {
+	bootstrap()
+
 	type to = testOptions
 	type m = map[string]interface{}
 	uniqueID1, uniqueID2, uniqueID3, uniqueID4 := "11111111H", "22222222J", "33333333P", "44444444A"

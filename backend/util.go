@@ -126,7 +126,7 @@ func invalidCountType(countType string) bool {
 
 func invalidRegisterParams(params registerParams) (registerParams, bool) {
 	address, err := mail.ParseAddress(params.Email)
-	if err != nil {
+	if err == nil {
 		params.Email = address.Address
 	}
 	// TODO unique ID validates one of the allowed types
