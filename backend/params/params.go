@@ -30,6 +30,10 @@ func P(kind string) params {
 	}
 }
 
+func None() func(*http.Request) (Values, error) {
+	return func(*http.Request) (Values, error) { return make(Values), nil }
+}
+
 func Custom(validator func(*http.Request) (interface{}, error)) params {
 	return params{kind: "custom", customValidator: validator}
 }

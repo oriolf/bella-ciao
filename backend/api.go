@@ -215,11 +215,7 @@ func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cl
 }
 
 func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	id, ok := p.Custom().(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
+	id := p.Int("id")
 	filename, err := getFilename(db, id)
 	if err != nil {
 		return fmt.Errorf("could not get file name: %w", err)
@@ -237,12 +233,7 @@ func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 }
 
 func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	id, ok := p.Custom().(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	filename, err := getFilename(db, id)
+	filename, err := getFilename(db, p.Int("id"))
 	if err != nil {
 		return fmt.Errorf("could not get file name: %w", err)
 	}
@@ -347,12 +338,7 @@ func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims 
 }
 
 func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	messageID, ok := p.Custom().(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	if err := solveMessage(db, messageID); err != nil {
+	if err := solveMessage(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not solve message: %w", err)
 	}
 
@@ -360,8 +346,7 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 }
 
 func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	userID, _ := p.Custom().(int)
-	if err := validateUser(db, userID); err != nil {
+	if err := validateUser(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not validate user: %w", err)
 	}
 
@@ -431,11 +416,7 @@ func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 }
 
 func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	id, ok := p.Custom().(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
+	id := p.Int("id")
 	c, err := getCandidate(db, id)
 	if err != nil {
 		return fmt.Errorf("could not get candidate: %w", err)
@@ -466,12 +447,7 @@ func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 }
 
 func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	id, ok := p.Custom().(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	if err := publishElection(db, id); err != nil {
+	if err := publishElection(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not delete candidate: %w", err)
 	}
 

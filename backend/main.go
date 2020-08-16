@@ -2,11 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -16,31 +14,32 @@ import (
 )
 
 var (
+	idParams    = par.P("query").Int("id", par.PositiveInt).End()
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-		"/uninitialized": handler(NoToken, par.Custom(noParams).End(), Uninitialized),
+		"/uninitialized": handler(NoToken, par.None(), Uninitialized),
 		"/initialize":    handler(NoToken, par.Custom(InitializeParams).End(), Initialize),
 
 		"/auth/register": handler(NoToken, par.Custom(RegisterParams).End(), Register),
 		"/auth/login":    handler(NoToken, par.Custom(LoginParams).End(), Login),
 
-		"/users/files/own":      handler(UserToken, par.Custom(noParams).End(), GetOwnFiles),
-		"/users/files/delete":   handler(FileOwnerOrAdminToken, par.Custom(IDParams).End(), DeleteFile),
-		"/users/files/download": handler(FileOwnerOrAdminToken, par.Custom(IDParams).End(), DownloadFile),
+		"/users/files/own":      handler(UserToken, par.None(), GetOwnFiles),
+		"/users/files/delete":   handler(FileOwnerOrAdminToken, idParams, DeleteFile),
+		"/users/files/download": handler(FileOwnerOrAdminToken, idParams, DownloadFile),
 		"/users/files/upload":   handler(UserToken, par.Custom(UploadFileParams).End(), UploadFile),
 
-		"/users/unvalidated/get": handler(AdminToken, par.Custom(noParams).End(), GetUnvalidatedUsers),
-		"/users/validated/get":   handler(AdminToken, par.Custom(noParams).End(), GetValidatedUsers),
+		"/users/unvalidated/get": handler(AdminToken, par.None(), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(AdminToken, par.None(), GetValidatedUsers),
 		"/users/messages/add":    handler(AdminToken, par.Custom(AddMessageParams).End(), AddMessage),
-		"/users/messages/own":    handler(UserToken, par.Custom(noParams).End(), GetOwnMessages),
-		"/users/messages/solve":  handler(MessageOwnerOrAdminToken, par.Custom(IDParams).End(), SolveMessage),
-		"/users/validate":        handler(AdminToken, par.Custom(IDParams).End(), ValidateUser),
+		"/users/messages/own":    handler(UserToken, par.None(), GetOwnMessages),
+		"/users/messages/solve":  handler(MessageOwnerOrAdminToken, idParams, SolveMessage),
+		"/users/validate":        handler(AdminToken, idParams, ValidateUser),
 
-		"/candidates/get":    handler(NoToken, par.Custom(noParams).End(), GetCandidates),
+		"/candidates/get":    handler(NoToken, par.None(), GetCandidates),
 		"/candidates/add":    handler(AdminToken, par.Custom(AddCandidateParams).End(), AddCandidate),
-		"/candidates/delete": handler(AdminToken, par.Custom(IDParams).End(), DeleteCandidate),
+		"/candidates/delete": handler(AdminToken, idParams, DeleteCandidate),
 
-		"/elections/get":     handler(NoToken, par.Custom(noParams).End(), GetElections),
-		"/elections/publish": handler(AdminToken, par.Custom(IDParams).End(), PublishElection),
+		"/elections/get":     handler(NoToken, par.None(), GetElections),
+		"/elections/publish": handler(AdminToken, idParams, PublishElection),
 		// TODO store allowed identification types and count methods as part of the initialization
 		// TODO validate (and test) that unique IDs and count methods are one of the allowed
 		// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
@@ -154,22 +153,4 @@ func handler(
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 	}
-}
-
-func IDParams(r *http.Request) (interface{}, error) {
-	value := r.URL.Query().Get("id")
-	if value == "" {
-		return nil, errors.New("missing parameter")
-	}
-
-	id, err := strconv.Atoi(value)
-	if err != nil {
-		return nil, errors.New("id is not a number")
-	}
-
-	return id, nil
-}
-
-func noParams(*http.Request) (interface{}, error) {
-	return nil, nil
 }

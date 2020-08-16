@@ -86,13 +86,8 @@ func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jwt.T
 		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
-	params := vals.Custom()
 	if claims.Role != ROLE_ADMIN {
-		fileID, ok := params.(int)
-		if !ok {
-			return token, claims, errors.New("wrong params model")
-		}
-		if err := checkFileOwnedByUser(db, fileID, claims.User.ID); err != nil {
+		if err := checkFileOwnedByUser(db, vals.Int("id"), claims.User.ID); err != nil {
 			return token, claims, fmt.Errorf("not admin and file not owned: %w", err)
 		}
 	}
@@ -106,13 +101,8 @@ func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jw
 		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
-	params := vals.Custom()
 	if claims.Role != ROLE_ADMIN {
-		messageID, ok := params.(int)
-		if !ok {
-			return token, claims, errors.New("wrong params model")
-		}
-		if err := checkMessageOwnedByUser(db, messageID, claims.User.ID); err != nil {
+		if err := checkMessageOwnedByUser(db, vals.Int("id"), claims.User.ID); err != nil {
 			return token, claims, fmt.Errorf("not admin and message not owned: %w", err)
 		}
 	}
