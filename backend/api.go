@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/oriolf/bella-ciao/params"
 )
 
 var errDataMissing = errors.New("needed data missing")
@@ -55,7 +56,7 @@ type electionParams struct {
 	MinCandidates int       `json:"min_candidates"`
 }
 
-func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	if initialized := getInitialized(); initialized {
 		return errors.New("already initialized")
 	}
@@ -78,7 +79,7 @@ func InitializeParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	initialized.mutex.Lock()
 	defer initialized.mutex.Unlock()
 
@@ -92,7 +93,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return errors.New("an admin user already exists")
 	}
 
-	params, ok := p.(initializeParams)
+	params, ok := p.Custom().(initializeParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -140,8 +141,8 @@ func RegisterParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	params, ok := p.(registerParams)
+func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	params, ok := p.Custom().(registerParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -172,8 +173,8 @@ func LoginParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	params, ok := p.(registerParams)
+func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	params, ok := p.Custom().(registerParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -204,7 +205,7 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 	return nil
 }
 
-func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	files, err := getUserFiles(db, claims.User.ID)
 	if err != nil {
 		return err
@@ -213,8 +214,8 @@ func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cl
 	return WriteResult(w, files)
 }
 
-func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, ok := p.(int)
+func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	id, ok := p.Custom().(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -235,8 +236,8 @@ func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, ok := p.(int)
+func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	id, ok := p.Custom().(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -274,8 +275,8 @@ func UploadFileParams(r *http.Request) (interface{}, error) {
 	}, nil
 }
 
-func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	par, ok := p.(fileUploadParams)
+func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	par, ok := p.Custom().(fileUploadParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -297,15 +298,15 @@ func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
 }
 
-func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	return GetUsers(w, db, token, claims, p, "users.role != 'none'")
 }
 
-func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}, where string) error {
+func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values, where string) error {
 	users, err := getUsers(db, where)
 	if err != nil {
 		return fmt.Errorf("could not get users from db: %w", err)
@@ -327,8 +328,8 @@ func AddMessageParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	params, _ := p.(messageParams)
+func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	params, _ := p.Custom().(messageParams)
 	if err := addMessage(db, UserMessage{UserID: params.UserID, Content: params.Content}); err != nil {
 		return fmt.Errorf("could not add message to db: %w", err)
 	}
@@ -336,7 +337,7 @@ func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	messages, err := getUserMessages(db, claims.User.ID)
 	if err != nil {
 		return err
@@ -345,8 +346,8 @@ func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims 
 	return WriteResult(w, messages)
 }
 
-func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	messageID, ok := p.(int)
+func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	messageID, ok := p.Custom().(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -358,8 +359,8 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	userID, _ := p.(int)
+func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	userID, _ := p.Custom().(int)
 	if err := validateUser(db, userID); err != nil {
 		return fmt.Errorf("could not validate user: %w", err)
 	}
@@ -367,7 +368,7 @@ func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params par.Values) error {
 	candidates, err := getCandidates(db, 1)
 	if err != nil {
 		return fmt.Errorf("could not get candidates: %w", err)
@@ -405,8 +406,8 @@ func AddCandidateParams(r *http.Request) (interface{}, error) {
 	}, nil
 }
 
-func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	params, ok := p.(candidateParams)
+func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	params, ok := p.Custom().(candidateParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -429,8 +430,8 @@ func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, ok := p.(int)
+func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	id, ok := p.Custom().(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
@@ -451,7 +452,7 @@ func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims
 	return nil
 }
 
-func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params par.Values) error {
 	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
 		return fmt.Errorf("could not get elections: %w", err)
@@ -464,8 +465,8 @@ func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, ok := p.(int)
+func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	id, ok := p.Custom().(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}

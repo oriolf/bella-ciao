@@ -13,12 +13,14 @@ var (
 )
 
 type params struct {
-	kind       string
-	valueKinds map[string]string
-	validators map[string][]func(interface{}) error
+	kind            string
+	valueKinds      map[string]string
+	validators      map[string][]func(interface{}) error
+	customValue     interface{}
+	customValidator func(*http.Request) (interface{}, error)
 }
 
-type values map[string]interface{}
+type Values map[string]interface{}
 
 func P(kind string) params {
 	return params{
@@ -26,6 +28,10 @@ func P(kind string) params {
 		valueKinds: make(map[string]string),
 		validators: make(map[string][]func(interface{}) error),
 	}
+}
+
+func Custom(validator func(*http.Request) (interface{}, error)) params {
+	return params{kind: "custom", customValidator: validator}
 }
 
 func (p params) Int(name string, validators ...func(interface{}) error) params {
@@ -36,18 +42,20 @@ func (p params) Int(name string, validators ...func(interface{}) error) params {
 	return p
 }
 
-func (p params) End() func(*http.Request) (values, error) {
-	return func(r *http.Request) (values, error) {
+func (p params) End() func(*http.Request) (Values, error) {
+	return func(r *http.Request) (Values, error) {
 		switch p.kind {
 		case "query":
 			return endQueryParams(r, p)
+		case "custom":
+			return endCustomParams(r, p)
 		}
 		panic("unknown params kind!")
 	}
 }
 
-func endQueryParams(r *http.Request, p params) (values, error) {
-	vals := make(values)
+func endQueryParams(r *http.Request, p params) (Values, error) {
+	vals := make(Values)
 	for name, kind := range p.valueKinds {
 		switch kind {
 		case "int":
@@ -61,6 +69,14 @@ func endQueryParams(r *http.Request, p params) (values, error) {
 		}
 	}
 	return vals, nil
+}
+
+func endCustomParams(r *http.Request, p params) (Values, error) {
+	val, err := p.customValidator(r)
+	if err != nil {
+		return nil, err
+	}
+	return Values(map[string]interface{}{"custom": val}), nil
 }
 
 func getQueryInt(r *http.Request, p params, name string) (interface{}, error) {
@@ -78,16 +94,22 @@ func getQueryInt(r *http.Request, p params, name string) (interface{}, error) {
 	return vv, nil
 }
 
-func (v values) Int(name string) int {
+func (v Values) Int(name string) int {
 	x, ok := v[name]
 	if !ok {
 		panic("asked for unknown name!")
 	}
+
 	i, ok := x.(int)
 	if !ok {
 		panic("asked for wrong type!")
 	}
+
 	return i
+}
+
+func (v Values) Custom() interface{} {
+	return v["custom"]
 }
 
 func PositiveInt(i interface{}) error {

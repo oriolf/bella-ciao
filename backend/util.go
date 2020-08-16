@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/oriolf/bella-ciao/params"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -26,7 +27,7 @@ var (
 	fileUploadMutex sync.Mutex
 )
 
-func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+func NoToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return &jwt.Token{}, nil, nil
@@ -35,7 +36,7 @@ func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Clai
 	return token, claims, nil
 }
 
-func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Token, claims *Claims, err error) {
+func UserToken(db *sql.DB, r *http.Request, params par.Values) (token *jwt.Token, claims *Claims, err error) {
 	auth := r.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) < 2 {
@@ -53,7 +54,7 @@ func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Toke
 	return token, claims, nil
 }
 
-func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+func ValidatedToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return token, claims, fmt.Errorf("error getting token: %w", err)
@@ -66,7 +67,7 @@ func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token
 	return token, claims, nil
 }
 
-func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+func AdminToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
 	token, claims, err := UserToken(db, r, params)
 	if err != nil {
 		return token, claims, fmt.Errorf("error getting token: %w", err)
@@ -79,12 +80,13 @@ func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *C
 	return token, claims, nil
 }
 
-func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
+func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, vals)
 	if err != nil {
 		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
+	params := vals.Custom()
 	if claims.Role != ROLE_ADMIN {
 		fileID, ok := params.(int)
 		if !ok {
@@ -98,12 +100,13 @@ func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jw
 	return token, claims, nil
 }
 
-func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
+func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, vals)
 	if err != nil {
 		return token, claims, fmt.Errorf("error getting token: %w", err)
 	}
 
+	params := vals.Custom()
 	if claims.Role != ROLE_ADMIN {
 		messageID, ok := params.(int)
 		if !ok {

@@ -2,10 +2,11 @@ package par
 
 import (
 	"net/http"
+	"strconv"
 	"testing"
 )
 
-func TestParams(t *testing.T) {
+func TestInt(t *testing.T) {
 	req, err := http.NewRequest("GET", "http://localhost?id=123", nil)
 	if err != nil {
 		t.Errorf("Could not define request: %s", err)
@@ -23,6 +24,41 @@ func TestParams(t *testing.T) {
 	}
 
 	assertPanic(t, func() { values.Int("invalid-name") })
+}
+
+func TestCustom(t *testing.T) {
+	type p struct {
+		a int
+		b string
+	}
+
+	validator := func(r *http.Request) (interface{}, error) {
+		aq := r.URL.Query().Get("a")
+		a, _ := strconv.Atoi(aq)
+		b := r.URL.Query().Get("b")
+		return p{a: a, b: b}, nil
+	}
+
+	req, err := http.NewRequest("GET", "http://localhost?a=123&b=asd", nil)
+	if err != nil {
+		t.Errorf("Could not define request: %s", err)
+	}
+
+	pf := Custom(validator).End()
+	values, err := pf(req)
+	if err != nil {
+		t.Errorf("Error parsing params: %s.", err)
+	}
+
+	x := values.Custom()
+	y, ok := x.(p)
+	if !ok {
+		t.Errorf("Wrong type returned by custom: %T", x)
+	}
+
+	if y.a != 123 || y.b != "asd" {
+		t.Errorf("Expected %v, but got %v.", p{a: 123, b: "asd"}, y)
+	}
 }
 
 func assertPanic(t *testing.T, f func()) {

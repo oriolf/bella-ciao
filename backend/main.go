@@ -12,34 +12,35 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/oriolf/bella-ciao/params"
 )
 
 var (
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-		"/uninitialized": handler(NoToken, noParams, Uninitialized),
-		"/initialize":    handler(NoToken, InitializeParams, Initialize),
+		"/uninitialized": handler(NoToken, par.Custom(noParams).End(), Uninitialized),
+		"/initialize":    handler(NoToken, par.Custom(InitializeParams).End(), Initialize),
 
-		"/auth/register": handler(NoToken, RegisterParams, Register),
-		"/auth/login":    handler(NoToken, LoginParams, Login),
+		"/auth/register": handler(NoToken, par.Custom(RegisterParams).End(), Register),
+		"/auth/login":    handler(NoToken, par.Custom(LoginParams).End(), Login),
 
-		"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
-		"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
-		"/users/files/download": handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
-		"/users/files/upload":   handler(UserToken, UploadFileParams, UploadFile),
+		"/users/files/own":      handler(UserToken, par.Custom(noParams).End(), GetOwnFiles),
+		"/users/files/delete":   handler(FileOwnerOrAdminToken, par.Custom(IDParams).End(), DeleteFile),
+		"/users/files/download": handler(FileOwnerOrAdminToken, par.Custom(IDParams).End(), DownloadFile),
+		"/users/files/upload":   handler(UserToken, par.Custom(UploadFileParams).End(), UploadFile),
 
-		"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsers),
-		"/users/validated/get":   handler(AdminToken, noParams, GetValidatedUsers),
-		"/users/messages/add":    handler(AdminToken, AddMessageParams, AddMessage),
-		"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
-		"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
-		"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
+		"/users/unvalidated/get": handler(AdminToken, par.Custom(noParams).End(), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(AdminToken, par.Custom(noParams).End(), GetValidatedUsers),
+		"/users/messages/add":    handler(AdminToken, par.Custom(AddMessageParams).End(), AddMessage),
+		"/users/messages/own":    handler(UserToken, par.Custom(noParams).End(), GetOwnMessages),
+		"/users/messages/solve":  handler(MessageOwnerOrAdminToken, par.Custom(IDParams).End(), SolveMessage),
+		"/users/validate":        handler(AdminToken, par.Custom(IDParams).End(), ValidateUser),
 
-		"/candidates/get":    handler(NoToken, noParams, GetCandidates),
-		"/candidates/add":    handler(AdminToken, AddCandidateParams, AddCandidate),
-		"/candidates/delete": handler(AdminToken, IDParams, DeleteCandidate),
+		"/candidates/get":    handler(NoToken, par.Custom(noParams).End(), GetCandidates),
+		"/candidates/add":    handler(AdminToken, par.Custom(AddCandidateParams).End(), AddCandidate),
+		"/candidates/delete": handler(AdminToken, par.Custom(IDParams).End(), DeleteCandidate),
 
-		"/elections/get":     handler(NoToken, noParams, GetElections),
-		"/elections/publish": handler(AdminToken, IDParams, PublishElection),
+		"/elections/get":     handler(NoToken, par.Custom(noParams).End(), GetElections),
+		"/elections/publish": handler(AdminToken, par.Custom(IDParams).End(), PublishElection),
 		// TODO store allowed identification types and count methods as part of the initialization
 		// TODO validate (and test) that unique IDs and count methods are one of the allowed
 		// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
@@ -100,9 +101,9 @@ func getInitialized() bool {
 }
 
 func handler(
-	tokenFunc func(*sql.DB, *http.Request, interface{}) (*jwt.Token, *Claims, error),
-	paramsFunc func(*http.Request) (interface{}, error),
-	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, interface{}) error,
+	tokenFunc func(*sql.DB, *http.Request, par.Values) (*jwt.Token, *Claims, error),
+	paramsFunc func(*http.Request) (par.Values, error),
+	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, par.Values) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if initialized := getInitialized(); !initialized {
