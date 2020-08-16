@@ -2,9 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -12,37 +14,42 @@ import (
 	"github.com/dgrijalva/jwt-go"
 )
 
-const dbfile = "db.db"
+var (
+	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
+		"/uninitialized": handler(NoToken, noParams, Uninitialized),
+		"/initialize":    handler(NoToken, InitializeParams, Initialize),
 
-var appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-	"/uninitialized": handler(NoToken, noParams, Uninitialized),
-	"/initialize":    handler(NoToken, GetInitializeParams, Initialize),
+		"/auth/register": handler(NoToken, RegisterParams, Register),
+		"/auth/login":    handler(NoToken, LoginParams, Login),
 
-	"/auth/register": handler(NoToken, GetRegisterParams, Register),
-	"/auth/login":    handler(NoToken, GetLoginParams, Login),
+		"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
+		"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
+		"/users/files/download": handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
+		"/users/files/upload":   handler(UserToken, UploadFileParams, UploadFile),
 
-	"/users/files/own":      handler(UserToken, noParams, GetOwnFiles),
-	"/users/files/delete":   handler(FileOwnerOrAdminToken, IDParams, DeleteFile),
-	"/users/files/download": handler(FileOwnerOrAdminToken, IDParams, DownloadFile),
-	"/users/files/upload":   handler(UserToken, GetUploadFileParams, UploadFile),
+		"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsers),
+		"/users/validated/get":   handler(AdminToken, noParams, GetValidatedUsers),
+		"/users/messages/add":    handler(AdminToken, AddMessageParams, AddMessage),
+		"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
+		"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
+		"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
 
-	"/users/unvalidated/get": handler(AdminToken, noParams, GetUnvalidatedUsers),
-	"/users/validated/get":   handler(AdminToken, noParams, GetValidatedUsers),
-	"/users/messages/add":    handler(AdminToken, GetMessageParams, AddMessage),
-	"/users/messages/own":    handler(UserToken, noParams, GetOwnMessages),
-	"/users/messages/solve":  handler(MessageOwnerOrAdminToken, IDParams, SolveMessage),
-	"/users/validate":        handler(AdminToken, IDParams, ValidateUser),
+		"/candidates/get":    handler(NoToken, noParams, GetCandidates),
+		"/candidates/add":    handler(AdminToken, AddCandidateParams, AddCandidate),
+		"/candidates/delete": handler(AdminToken, IDParams, DeleteCandidate),
 
-	"/candidates/get":    handler(NoToken, noParams, GetCandidates),
-	"/candidates/add":    handler(AdminToken, GetCandidateParams, AddCandidate),
-	"/candidates/delete": handler(AdminToken, IDParams, DeleteCandidate),
+		"/elections/get":     handler(NoToken, noParams, GetElections),
+		"/elections/publish": handler(AdminToken, IDParams, PublishElection),
+		// TODO store allowed identification types and count methods as part of the initialization
+		// TODO validate (and test) that unique IDs and count methods are one of the allowed
+		// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
+	}
 
-	"/elections/get":     handler(NoToken, noParams, GetElections),
-	"/elections/publish": handler(AdminToken, IDParams, PublishElection),
-	// TODO store allowed identification types and count methods as part of the initialization
-	// TODO validate (and test) that unique IDs and count methods are one of the allowed
-	// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
-}
+	initialized struct {
+		value bool
+		mutex sync.Mutex
+	}
+)
 
 func main() {
 	bootstrap()
@@ -52,7 +59,7 @@ func main() {
 }
 
 func bootstrap() {
-	db, err := sql.Open("sqlite3", dbfile)
+	db, err := sql.Open("sqlite3", DB_FILE)
 	if err != nil {
 		log.Fatalln("Error during database connection:", err)
 	}
@@ -73,11 +80,6 @@ func bootstrap() {
 	for path, handler := range appHandlers {
 		http.HandleFunc(path, handler)
 	}
-}
-
-var initialized struct {
-	value bool
-	mutex sync.Mutex
 }
 
 func checkInitialized(db *sql.DB) {
@@ -133,7 +135,7 @@ func handler(
 			return
 		}
 
-		db, err := sql.Open("sqlite3", dbfile)
+		db, err := sql.Open("sqlite3", DB_FILE)
 		if err != nil {
 			log.Fatalln("Error during database connection in handler:", err)
 		}
@@ -151,6 +153,20 @@ func handler(
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 	}
+}
+
+func IDParams(r *http.Request) (interface{}, error) {
+	value := r.URL.Query().Get("id")
+	if value == "" {
+		return nil, errors.New("missing parameter")
+	}
+
+	id, err := strconv.Atoi(value)
+	if err != nil {
+		return nil, errors.New("id is not a number")
+	}
+
+	return id, nil
 }
 
 func noParams(*http.Request) (interface{}, error) {

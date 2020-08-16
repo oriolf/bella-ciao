@@ -16,10 +16,6 @@ type Claims struct {
 	jwt.StandardClaims
 }
 
-type config struct {
-	allowedIDTypes []string
-}
-
 type User struct {
 	ID       int    `json:"id"`
 	Name     string `json:"name"`

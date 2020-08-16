@@ -408,7 +408,7 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 
 func checkAppState(expectedUsers []expectedUser) func(*testing.T) {
 	return func(t *testing.T) {
-		db, err := sql.Open("sqlite3", dbfile)
+		db, err := sql.Open("sqlite3", DB_FILE)
 		if err != nil {
 			t.Fatal("Error during database connection in handler:", err)
 		}

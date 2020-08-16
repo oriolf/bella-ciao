@@ -24,6 +24,7 @@ const (
 	MIN_PASSWORD_LENGTH = 8
 
 	UPLOADS_FOLDER = "uploads"
+	DB_FILE        = "db.db"
 )
 
 var SQLITE_TIME_FORMAT = ""

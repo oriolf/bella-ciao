@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -21,15 +19,6 @@ var errDataMissing = errors.New("needed data missing")
 type initializeParams struct {
 	Admin    registerParams `json:"admin"`
 	Election electionParams `json:"election"`
-}
-
-type electionParams struct {
-	Name          string    `json:"name"`
-	Start         time.Time `json:"start"`
-	End           time.Time `json:"end"`
-	CountType     string    `json:"count_type"`
-	MaxCandidates int       `json:"max_candidates"`
-	MinCandidates int       `json:"min_candidates"`
 }
 
 type registerParams struct {
@@ -50,95 +39,20 @@ type messageParams struct {
 	Content string `json:"content"`
 }
 
-func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return &jwt.Token{}, nil, nil
-	}
-
-	return token, claims, nil
+type candidateParams struct {
+	Name         string
+	Presentation string
+	Image        string
+	ImageContent []byte
 }
 
-func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Token, claims *Claims, err error) {
-	auth := r.Header.Get("Authorization")
-	parts := strings.Split(auth, " ")
-	if len(parts) < 2 {
-		return token, claims, errors.New("no token provided")
-	}
-
-	claims = &Claims{} // required, nil claims is no use
-	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
-		return JWTKey, nil
-	})
-	if !token.Valid {
-		return token, claims, errors.New("invalid token")
-	}
-
-	return token, claims, nil
-}
-
-func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role == ROLE_NONE {
-		return token, claims, errors.New("none role")
-	}
-
-	return token, claims, nil
-}
-
-func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role != ROLE_ADMIN {
-		return token, claims, errors.New("non admin role")
-	}
-
-	return token, claims, nil
-}
-
-func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role != ROLE_ADMIN {
-		fileID, ok := params.(int)
-		if !ok {
-			return token, claims, errors.New("wrong params model")
-		}
-		if err := checkFileOwnedByUser(db, fileID, claims.User.ID); err != nil {
-			return token, claims, fmt.Errorf("not admin and file not owned: %w", err)
-		}
-	}
-
-	return token, claims, nil
-}
-
-func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role != ROLE_ADMIN {
-		messageID, ok := params.(int)
-		if !ok {
-			return token, claims, errors.New("wrong params model")
-		}
-		if err := checkMessageOwnedByUser(db, messageID, claims.User.ID); err != nil {
-			return token, claims, fmt.Errorf("not admin and message not owned: %w", err)
-		}
-	}
-
-	return token, claims, nil
+type electionParams struct {
+	Name          string    `json:"name"`
+	Start         time.Time `json:"start"`
+	End           time.Time `json:"end"`
+	CountType     string    `json:"count_type"`
+	MaxCandidates int       `json:"max_candidates"`
+	MinCandidates int       `json:"min_candidates"`
 }
 
 func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
@@ -149,7 +63,7 @@ func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	return nil // only returns OK if not initialized
 }
 
-func GetInitializeParams(r *http.Request) (interface{}, error) {
+func InitializeParams(r *http.Request) (interface{}, error) {
 	var params initializeParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -212,7 +126,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetRegisterParams(r *http.Request) (interface{}, error) {
+func RegisterParams(r *http.Request) (interface{}, error) {
 	var params registerParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -220,19 +134,6 @@ func GetRegisterParams(r *http.Request) (interface{}, error) {
 
 	params, invalid := invalidRegisterParams(params)
 	if invalid {
-		return nil, errDataMissing
-	}
-
-	return params, nil
-}
-
-func GetMessageParams(r *http.Request) (interface{}, error) {
-	var params messageParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
-	}
-
-	if params.UserID == 0 || params.Content == "" {
 		return nil, errDataMissing
 	}
 
@@ -258,7 +159,7 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return nil
 }
 
-func GetLoginParams(r *http.Request) (interface{}, error) {
+func LoginParams(r *http.Request) (interface{}, error) {
 	var params registerParams
 	if err := GetParams(r, &params); err != nil {
 		return nil, err
@@ -271,27 +172,13 @@ func GetLoginParams(r *http.Request) (interface{}, error) {
 	return params, nil
 }
 
-func IDParams(r *http.Request) (interface{}, error) {
-	value := r.URL.Query().Get("id")
-	if value == "" {
-		return nil, errors.New("missing parameter")
-	}
-
-	id, err := strconv.Atoi(value)
-	if err != nil {
-		return nil, errors.New("id is not a number")
-	}
-
-	return id, nil
-}
-
 func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	params, ok := p.(registerParams)
 	if !ok {
 		return errors.New("wrong params model")
 	}
 
-	user, err := GetUserFromUniqueID(db, params.UniqueID)
+	user, err := getUserFromUniqueID(db, params.UniqueID)
 	if err != nil {
 		return fmt.Errorf("could not get user: %w", err)
 	}
@@ -317,27 +204,164 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 	return nil
 }
 
-func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
-	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
+func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	files, err := getUserFiles(db, claims.User.ID)
 	if err != nil {
-		return fmt.Errorf("could not get elections: %w", err)
+		return err
 	}
 
-	if err := WriteResult(w, elections); err != nil {
-		return fmt.Errorf("could not write response: %w", err)
-	}
-
-	return nil
+	return WriteResult(w, files)
 }
 
-func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	id, ok := p.(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
 
-	if err := publishElection(db, id); err != nil {
-		return fmt.Errorf("could not delete candidate: %w", err)
+	filename, err := getFilename(db, id)
+	if err != nil {
+		return fmt.Errorf("could not get file name: %w", err)
+	}
+
+	if err := os.Remove(filepath.Join(UPLOADS_FOLDER, filename)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("could not delete file: %w", err)
+	}
+
+	if err := deleteFile(db, id); err != nil {
+		return fmt.Errorf("could not delete file from db: %w", err)
+	}
+
+	return nil
+}
+
+func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	id, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	filename, err := getFilename(db, id)
+	if err != nil {
+		return fmt.Errorf("could not get file name: %w", err)
+	}
+
+	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join(UPLOADS_FOLDER, filename))
+	return nil
+}
+
+func UploadFileParams(r *http.Request) (interface{}, error) {
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		return nil, fmt.Errorf("could not get file from form: %w", err)
+	}
+	defer file.Close()
+
+	b, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("could not read file: %w", err)
+	}
+
+	description := r.FormValue("description")
+	if handler.Filename == "" || len(b) == 0 || description == "" {
+		return nil, errDataMissing
+	}
+
+	return fileUploadParams{
+		filename:    handler.Filename,
+		content:     b,
+		description: description,
+	}, nil
+}
+
+func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	par, ok := p.(fileUploadParams)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	f, filename, err := safeCreateFile(UPLOADS_FOLDER, par.filename)
+	if err != nil {
+		return fmt.Errorf("could not create file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write(par.content); err != nil {
+		return fmt.Errorf("could not write to file: %w", err)
+	}
+
+	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: filename, Description: par.description}); err != nil {
+		return fmt.Errorf("could not insert file: %w", err)
+	}
+
+	return nil
+}
+
+func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
+}
+
+func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	return GetUsers(w, db, token, claims, p, "users.role != 'none'")
+}
+
+func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}, where string) error {
+	users, err := getUsers(db, where)
+	if err != nil {
+		return fmt.Errorf("could not get users from db: %w", err)
+	}
+
+	return WriteResult(w, users)
+}
+
+func AddMessageParams(r *http.Request) (interface{}, error) {
+	var params messageParams
+	if err := GetParams(r, &params); err != nil {
+		return nil, err
+	}
+
+	if params.UserID == 0 || params.Content == "" {
+		return nil, errDataMissing
+	}
+
+	return params, nil
+}
+
+func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	params, _ := p.(messageParams)
+	if err := addMessage(db, UserMessage{UserID: params.UserID, Content: params.Content}); err != nil {
+		return fmt.Errorf("could not add message to db: %w", err)
+	}
+
+	return nil
+}
+
+func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	messages, err := getUserMessages(db, claims.User.ID)
+	if err != nil {
+		return err
+	}
+
+	return WriteResult(w, messages)
+}
+
+func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	messageID, ok := p.(int)
+	if !ok {
+		return errors.New("wrong params model")
+	}
+
+	if err := solveMessage(db, messageID); err != nil {
+		return fmt.Errorf("could not solve message: %w", err)
+	}
+
+	return nil
+}
+
+func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+	userID, _ := p.(int)
+	if err := validateUser(db, userID); err != nil {
+		return fmt.Errorf("could not validate user: %w", err)
 	}
 
 	return nil
@@ -356,14 +380,7 @@ func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	return nil
 }
 
-type candidateParams struct {
-	Name         string
-	Presentation string
-	Image        string
-	ImageContent []byte
-}
-
-func GetCandidateParams(r *http.Request) (interface{}, error) {
+func AddCandidateParams(r *http.Request) (interface{}, error) {
 	file, handler, err := r.FormFile("image")
 	if err != nil {
 		return nil, fmt.Errorf("could not get file from form: %w", err)
@@ -434,152 +451,28 @@ func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims
 	return nil
 }
 
-func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
-}
-
-func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	return GetUsers(w, db, token, claims, p, "users.role != 'none'")
-}
-
-func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}, where string) error {
-	users, err := getUsers(db, where)
+func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params interface{}) error {
+	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
-		return fmt.Errorf("could not get users from db: %w", err)
+		return fmt.Errorf("could not get elections: %w", err)
 	}
 
-	return WriteResult(w, users)
-}
-
-func GetUploadFileParams(r *http.Request) (interface{}, error) {
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		return nil, fmt.Errorf("could not get file from form: %w", err)
-	}
-	defer file.Close()
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("could not read file: %w", err)
-	}
-
-	description := r.FormValue("description")
-	if handler.Filename == "" || len(b) == 0 || description == "" {
-		return nil, errDataMissing
-	}
-
-	return fileUploadParams{
-		filename:    handler.Filename,
-		content:     b,
-		description: description,
-	}, nil
-}
-
-func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	par, ok := p.(fileUploadParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	f, filename, err := safeCreateFile(UPLOADS_FOLDER, par.filename)
-	if err != nil {
-		return fmt.Errorf("could not create file: %w", err)
-	}
-	defer f.Close()
-
-	if _, err := f.Write(par.content); err != nil {
-		return fmt.Errorf("could not write to file: %w", err)
-	}
-
-	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: filename, Description: par.description}); err != nil {
-		return fmt.Errorf("could not insert file: %w", err)
+	if err := WriteResult(w, elections); err != nil {
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil
 }
 
-func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
+func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
 	id, ok := p.(int)
 	if !ok {
 		return errors.New("wrong params model")
 	}
 
-	filename, err := getFilename(db, id)
-	if err != nil {
-		return fmt.Errorf("could not get file name: %w", err)
-	}
-
-	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join(UPLOADS_FOLDER, filename))
-	return nil
-}
-
-func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	id, ok := p.(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	filename, err := getFilename(db, id)
-	if err != nil {
-		return fmt.Errorf("could not get file name: %w", err)
-	}
-
-	if err := os.Remove(filepath.Join(UPLOADS_FOLDER, filename)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("could not delete file: %w", err)
-	}
-
-	if err := deleteFile(db, id); err != nil {
-		return fmt.Errorf("could not delete file from db: %w", err)
+	if err := publishElection(db, id); err != nil {
+		return fmt.Errorf("could not delete candidate: %w", err)
 	}
 
 	return nil
-}
-
-func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	params, _ := p.(messageParams)
-	if err := addMessage(db, UserMessage{UserID: params.UserID, Content: params.Content}); err != nil {
-		return fmt.Errorf("could not add message to db: %w", err)
-	}
-
-	return nil
-}
-
-func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	messageID, ok := p.(int)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	if err := solveMessage(db, messageID); err != nil {
-		return fmt.Errorf("could not solve message: %w", err)
-	}
-
-	return nil
-}
-
-func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	userID, _ := p.(int)
-	if err := validateUser(db, userID); err != nil {
-		return fmt.Errorf("could not validate user: %w", err)
-	}
-
-	return nil
-}
-
-func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	files, err := getUserFiles(db, claims.User.ID)
-	if err != nil {
-		return err
-	}
-
-	return WriteResult(w, files)
-}
-
-func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p interface{}) error {
-	messages, err := getUserMessages(db, claims.User.ID)
-	if err != nil {
-		return err
-	}
-
-	return WriteResult(w, messages)
 }

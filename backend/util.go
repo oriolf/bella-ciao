@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -11,6 +12,7 @@ import (
 	"net/mail"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +25,97 @@ var (
 	JWTKey          = []byte("my_secret_key")
 	fileUploadMutex sync.Mutex
 )
+
+func NoToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return &jwt.Token{}, nil, nil
+	}
+
+	return token, claims, nil
+}
+
+func UserToken(db *sql.DB, r *http.Request, params interface{}) (token *jwt.Token, claims *Claims, err error) {
+	auth := r.Header.Get("Authorization")
+	parts := strings.Split(auth, " ")
+	if len(parts) < 2 {
+		return token, claims, errors.New("no token provided")
+	}
+
+	claims = &Claims{} // required, nil claims is no use
+	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
+		return JWTKey, nil
+	})
+	if !token.Valid {
+		return token, claims, errors.New("invalid token")
+	}
+
+	return token, claims, nil
+}
+
+func ValidatedToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return token, claims, fmt.Errorf("error getting token: %w", err)
+	}
+
+	if claims.Role == ROLE_NONE {
+		return token, claims, errors.New("none role")
+	}
+
+	return token, claims, nil
+}
+
+func AdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return token, claims, fmt.Errorf("error getting token: %w", err)
+	}
+
+	if claims.Role != ROLE_ADMIN {
+		return token, claims, errors.New("non admin role")
+	}
+
+	return token, claims, nil
+}
+
+func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return token, claims, fmt.Errorf("error getting token: %w", err)
+	}
+
+	if claims.Role != ROLE_ADMIN {
+		fileID, ok := params.(int)
+		if !ok {
+			return token, claims, errors.New("wrong params model")
+		}
+		if err := checkFileOwnedByUser(db, fileID, claims.User.ID); err != nil {
+			return token, claims, fmt.Errorf("not admin and file not owned: %w", err)
+		}
+	}
+
+	return token, claims, nil
+}
+
+func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, params interface{}) (*jwt.Token, *Claims, error) {
+	token, claims, err := UserToken(db, r, params)
+	if err != nil {
+		return token, claims, fmt.Errorf("error getting token: %w", err)
+	}
+
+	if claims.Role != ROLE_ADMIN {
+		messageID, ok := params.(int)
+		if !ok {
+			return token, claims, errors.New("wrong params model")
+		}
+		if err := checkMessageOwnedByUser(db, messageID, claims.User.ID); err != nil {
+			return token, claims, fmt.Errorf("not admin and message not owned: %w", err)
+		}
+	}
+
+	return token, claims, nil
+}
 
 func IsAdmin(claims *Claims) bool {
 	return claims != nil && claims.User.Role == "admin"
@@ -190,4 +283,22 @@ func getNameAndExtension(filename string) (string, string) {
 		}
 	}
 	return filename, ""
+}
+
+func missingFile(fileID int, files []UserFile) bool {
+	for _, x := range files {
+		if x.ID == fileID {
+			return false
+		}
+	}
+	return true
+}
+
+func missingMessage(messageID int, messages []UserMessage) bool {
+	for _, x := range messages {
+		if x.ID == messageID {
+			return false
+		}
+	}
+	return true
 }
