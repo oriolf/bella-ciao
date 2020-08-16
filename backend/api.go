@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,19 +26,6 @@ type registerParamsT struct {
 	UniqueID string `json:"unique_id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-}
-
-type fileUploadParams struct {
-	content     []byte
-	filename    string
-	description string
-}
-
-type candidateParams struct {
-	Name         string
-	Presentation string
-	Image        string
-	ImageContent []byte
 }
 
 type electionParams struct {
@@ -202,47 +188,19 @@ func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func UploadFileParams(r *http.Request) (interface{}, error) {
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		return nil, fmt.Errorf("could not get file from form: %w", err)
-	}
-	defer file.Close()
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("could not read file: %w", err)
-	}
-
-	description := r.FormValue("description")
-	if handler.Filename == "" || len(b) == 0 || description == "" {
-		return nil, errDataMissing
-	}
-
-	return fileUploadParams{
-		filename:    handler.Filename,
-		content:     b,
-		description: description,
-	}, nil
-}
-
 func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	par, ok := p.Custom().(fileUploadParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	f, filename, err := safeCreateFile(UPLOADS_FOLDER, par.filename)
+	content, filename := p.File("file")
+	f, filename, err := safeCreateFile(UPLOADS_FOLDER, filename)
 	if err != nil {
 		return fmt.Errorf("could not create file: %w", err)
 	}
 	defer f.Close()
 
-	if _, err := f.Write(par.content); err != nil {
+	if _, err := f.Write(content); err != nil {
 		return fmt.Errorf("could not write to file: %w", err)
 	}
 
-	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: filename, Description: par.description}); err != nil {
+	if err := insertFile(db, UserFile{UserID: claims.User.ID, Name: filename, Description: p.String("description")}); err != nil {
 		return fmt.Errorf("could not insert file: %w", err)
 	}
 
@@ -313,48 +271,19 @@ func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	return nil
 }
 
-func AddCandidateParams(r *http.Request) (interface{}, error) {
-	file, handler, err := r.FormFile("image")
-	if err != nil {
-		return nil, fmt.Errorf("could not get file from form: %w", err)
-	}
-	defer file.Close()
-
-	b, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("could not read file: %w", err)
-	}
-
-	name, presentation := r.FormValue("name"), r.FormValue("presentation")
-	if name == "" || presentation == "" || handler.Filename == "" || len(b) == 0 {
-		return nil, errDataMissing
-	}
-
-	return candidateParams{
-		Name:         name,
-		Presentation: presentation,
-		Image:        handler.Filename,
-		ImageContent: b,
-	}, nil
-}
-
 func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	params, ok := p.Custom().(candidateParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	f, filename, err := safeCreateFile(UPLOADS_FOLDER, params.Image)
+	image, filename := p.File("image")
+	f, filename, err := safeCreateFile(UPLOADS_FOLDER, filename)
 	if err != nil {
 		return fmt.Errorf("could not create file: %w", err)
 	}
 	defer f.Close()
 
-	if _, err := f.Write(params.ImageContent); err != nil {
+	if _, err := f.Write(image); err != nil {
 		return fmt.Errorf("could not write to file: %w", err)
 	}
 
-	err = addCandidate(db, Candidate{Name: params.Name, Presentation: params.Presentation, Image: filename})
+	err = addCandidate(db, Candidate{Name: p.String("name"), Presentation: p.String("presentation"), Image: filename})
 	if err != nil {
 		return fmt.Errorf("could not add candidate: %w", err)
 	}

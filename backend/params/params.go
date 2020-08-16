@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/mail"
 	"strconv"
@@ -50,6 +51,10 @@ func (p params) String(name string, validators ...func(interface{}) error) param
 	return p.newParam("string", name, validators...)
 }
 
+func (p params) File(name string) params {
+	return p.newParam("file", name)
+}
+
 func (p params) Email(name string) params {
 	return p.newParam("string", name, NonEmpty, Email)
 }
@@ -69,6 +74,8 @@ func (p params) End() func(*http.Request) (Values, error) {
 			return endQueryParams(r, p)
 		case "json":
 			return endJsonParams(r, p)
+		case "form":
+			return endFormParams(r, p)
 		case "custom":
 			return endCustomParams(r, p)
 		}
@@ -87,7 +94,7 @@ func endQueryParams(r *http.Request, p params) (Values, error) {
 			}
 			vals[name] = v
 		default:
-			panic("unknown value kind!")
+			panic(fmt.Sprintf("unknown value kind %q", kind))
 		}
 	}
 	return vals, nil
@@ -129,7 +136,42 @@ func endJsonParams(r *http.Request, p params) (Values, error) {
 			}
 			vals[name] = vv
 		default:
-			panic("unknown value kind!")
+			panic(fmt.Sprintf("unknown value kind %q", kind))
+		}
+	}
+	return vals, nil
+}
+
+func endFormParams(r *http.Request, p params) (Values, error) {
+	vals := make(Values)
+	for name, kind := range p.valueKinds {
+		switch kind {
+		case "string":
+			v := r.FormValue(name)
+			if err := checkValidators(v, name, p.validators); err != nil {
+				return nil, err
+			}
+			vals[name] = v
+		case "file":
+			file, handler, err := r.FormFile(name)
+			if err != nil {
+				return nil, err
+			}
+			defer file.Close()
+
+			b, err := ioutil.ReadAll(file)
+			if err != nil {
+				return nil, err
+			}
+
+			if handler.Filename == "" || len(b) == 0 {
+				return nil, errMissingParameter
+			}
+
+			vals[name] = b
+			vals[fileNameField(name)] = handler.Filename
+		default:
+			panic(fmt.Sprintf("unknown value kind %q", kind))
 		}
 	}
 	return vals, nil
@@ -195,6 +237,30 @@ func (v Values) String(name string) string {
 	}
 
 	return s
+}
+
+func (v Values) File(name string) ([]byte, string) {
+	x, ok := v[name]
+	if !ok {
+		panic(fmt.Sprintf("asked for unknown name %q", name))
+	}
+
+	b, ok := x.([]byte)
+	if !ok {
+		panic(fmt.Sprintf("asked for wrong type, expected []byte, got %T", b))
+	}
+
+	y := v[fileNameField(name)]
+	filename, ok := y.(string)
+	if !ok {
+		panic(fmt.Sprintf("missing filename field for %q", name))
+	}
+
+	return b, filename
+}
+
+func fileNameField(name string) string {
+	return name + ";_;fileNameField"
 }
 
 func (v Values) Custom() interface{} {

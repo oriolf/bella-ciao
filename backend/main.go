@@ -31,6 +31,15 @@ var (
 				Int("user_id", par.PositiveInt).
 				String("content", par.NonEmpty).End()
 
+	uploadFileParams = par.P("form").
+				File("file").
+				String("description", par.NonEmpty).End()
+
+	addCandidateParams = par.P("form").
+				File("image").
+				String("name", par.NonEmpty).
+				String("presentation", par.NonEmpty).End()
+
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, NoToken, Uninitialized),
 		"/initialize":    handler(par.Custom(InitializeParams).End(), NoToken, Initialize),
@@ -41,7 +50,7 @@ var (
 		"/users/files/own":      handler(noParams, UserToken, GetOwnFiles),
 		"/users/files/delete":   handler(idParams, FileOwnerOrAdminToken, DeleteFile),
 		"/users/files/download": handler(idParams, FileOwnerOrAdminToken, DownloadFile),
-		"/users/files/upload":   handler(par.Custom(UploadFileParams).End(), UserToken, UploadFile),
+		"/users/files/upload":   handler(uploadFileParams, UserToken, UploadFile),
 
 		"/users/unvalidated/get": handler(noParams, AdminToken, GetUnvalidatedUsers),
 		"/users/validated/get":   handler(noParams, AdminToken, GetValidatedUsers),
@@ -51,7 +60,7 @@ var (
 		"/users/validate":        handler(idParams, AdminToken, ValidateUser),
 
 		"/candidates/get":    handler(noParams, NoToken, GetCandidates),
-		"/candidates/add":    handler(par.Custom(AddCandidateParams).End(), AdminToken, AddCandidate),
+		"/candidates/add":    handler(addCandidateParams, AdminToken, AddCandidate),
 		"/candidates/delete": handler(idParams, AdminToken, DeleteCandidate),
 
 		"/elections/get":     handler(noParams, NoToken, GetElections),
