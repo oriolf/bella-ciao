@@ -1,6 +1,7 @@
 package par
 
 import (
+	"bytes"
 	"net/http"
 	"strconv"
 	"testing"
@@ -21,6 +22,30 @@ func TestInt(t *testing.T) {
 	id := values.Int("id")
 	if id != 123 {
 		t.Errorf("Expected 123, but got %d.", id)
+	}
+
+	assertPanic(t, func() { values.Int("invalid-name") })
+}
+
+func TestString(t *testing.T) {
+	body := bytes.NewReader([]byte(`{"a": "123", "b": "asd"}`))
+	req, err := http.NewRequest("GET", "http://localhost", body)
+	if err != nil {
+		t.Errorf("Could not define request: %s", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	pf := P("json").
+		String("a", MinLength(1)).
+		String("b", MinLength(2)).End()
+	values, err := pf(req)
+	if err != nil {
+		t.Errorf("Error parsing params: %s.", err)
+	}
+
+	a, b := values.String("a"), values.String("b")
+	if a != "123" || b != "asd" {
+		t.Errorf("Expected (\"123\", \"asd\"), but got (%q, %q).", a, b)
 	}
 
 	assertPanic(t, func() { values.Int("invalid-name") })

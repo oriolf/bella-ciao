@@ -14,31 +14,47 @@ import (
 )
 
 var (
-	idParams    = par.P("query").Int("id", par.PositiveInt).End()
+	idParams = par.P("query").Int("id", par.PositiveInt).End()
+	noParams = par.None()
+
+	loginParams = par.P("json").
+			String("unique_id", par.NonEmpty).
+			String("password", par.NonEmpty).End()
+
+	registerParams = par.P("json").
+			String("name", par.NonEmpty).
+			String("unique_id", par.NonEmpty).
+			Email("email").
+			String("password", par.MinLength(MIN_PASSWORD_LENGTH)).End()
+
+	addMessageParams = par.P("json").
+				Int("user_id", par.PositiveInt).
+				String("content", par.NonEmpty).End()
+
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-		"/uninitialized": handler(par.None(), NoToken, Uninitialized),
+		"/uninitialized": handler(noParams, NoToken, Uninitialized),
 		"/initialize":    handler(par.Custom(InitializeParams).End(), NoToken, Initialize),
 
-		"/auth/register": handler(par.Custom(RegisterParams).End(), NoToken, Register),
-		"/auth/login":    handler(par.Custom(LoginParams).End(), NoToken, Login),
+		"/auth/register": handler(registerParams, NoToken, Register),
+		"/auth/login":    handler(loginParams, NoToken, Login),
 
-		"/users/files/own":      handler(par.None(), UserToken, GetOwnFiles),
+		"/users/files/own":      handler(noParams, UserToken, GetOwnFiles),
 		"/users/files/delete":   handler(idParams, FileOwnerOrAdminToken, DeleteFile),
 		"/users/files/download": handler(idParams, FileOwnerOrAdminToken, DownloadFile),
 		"/users/files/upload":   handler(par.Custom(UploadFileParams).End(), UserToken, UploadFile),
 
-		"/users/unvalidated/get": handler(par.None(), AdminToken, GetUnvalidatedUsers),
-		"/users/validated/get":   handler(par.None(), AdminToken, GetValidatedUsers),
-		"/users/messages/add":    handler(par.Custom(AddMessageParams).End(), AdminToken, AddMessage),
-		"/users/messages/own":    handler(par.None(), UserToken, GetOwnMessages),
+		"/users/unvalidated/get": handler(noParams, AdminToken, GetUnvalidatedUsers),
+		"/users/validated/get":   handler(noParams, AdminToken, GetValidatedUsers),
+		"/users/messages/add":    handler(addMessageParams, AdminToken, AddMessage),
+		"/users/messages/own":    handler(noParams, UserToken, GetOwnMessages),
 		"/users/messages/solve":  handler(idParams, MessageOwnerOrAdminToken, SolveMessage),
 		"/users/validate":        handler(idParams, AdminToken, ValidateUser),
 
-		"/candidates/get":    handler(par.None(), NoToken, GetCandidates),
+		"/candidates/get":    handler(noParams, NoToken, GetCandidates),
 		"/candidates/add":    handler(par.Custom(AddCandidateParams).End(), AdminToken, AddCandidate),
 		"/candidates/delete": handler(idParams, AdminToken, DeleteCandidate),
 
-		"/elections/get":     handler(par.None(), NoToken, GetElections),
+		"/elections/get":     handler(noParams, NoToken, GetElections),
 		"/elections/publish": handler(idParams, AdminToken, PublishElection),
 		// TODO store allowed identification types and count methods as part of the initialization
 		// TODO validate (and test) that unique IDs and count methods are one of the allowed

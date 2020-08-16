@@ -210,7 +210,7 @@ func invalidCountType(countType string) bool {
 	return countType != COUNT_BORDA && countType != COUNT_DOWDALL
 }
 
-func invalidRegisterParams(params registerParams) (registerParams, bool) {
+func invalidRegisterParams(params registerParamsT) (registerParamsT, bool) {
 	address, err := mail.ParseAddress(params.Email)
 	if err == nil {
 		params.Email = address.Address

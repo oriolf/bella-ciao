@@ -18,11 +18,11 @@ import (
 var errDataMissing = errors.New("needed data missing")
 
 type initializeParams struct {
-	Admin    registerParams `json:"admin"`
-	Election electionParams `json:"election"`
+	Admin    registerParamsT `json:"admin"`
+	Election electionParams  `json:"election"`
 }
 
-type registerParams struct {
+type registerParamsT struct {
 	Name     string `json:"name"`
 	UniqueID string `json:"unique_id"`
 	Email    string `json:"email"`
@@ -33,11 +33,6 @@ type fileUploadParams struct {
 	content     []byte
 	filename    string
 	description string
-}
-
-type messageParams struct {
-	UserID  int    `json:"user_id"`
-	Content string `json:"content"`
 }
 
 type candidateParams struct {
@@ -127,32 +122,15 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func RegisterParams(r *http.Request) (interface{}, error) {
-	var params registerParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
-	}
-
-	params, invalid := invalidRegisterParams(params)
-	if invalid {
-		return nil, errDataMissing
-	}
-
-	return params, nil
-}
-
 func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	params, ok := p.Custom().(registerParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	password, salt, err := GetSaltAndHashPassword(params.Password)
+	uniqueID, pass := p.String("unique_id"), p.String("password")
+	name, email := p.String("name"), p.String("email")
+	password, salt, err := GetSaltAndHashPassword(pass)
 	if err != nil {
 		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
-	user := User{Name: params.Name, UniqueID: params.UniqueID, Email: params.Email, Password: password, Salt: salt}
+	user := User{Name: name, UniqueID: uniqueID, Email: email, Password: password, Salt: salt}
 	if err := RegisterUser(db, user); err != nil {
 		return fmt.Errorf("could not register user in db: %w", err)
 	}
@@ -160,31 +138,13 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return nil
 }
 
-func LoginParams(r *http.Request) (interface{}, error) {
-	var params registerParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
-	}
-
-	if params.UniqueID == "" || params.Password == "" {
-		return nil, errDataMissing
-	}
-
-	return params, nil
-}
-
 func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	params, ok := p.Custom().(registerParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	user, err := getUserFromUniqueID(db, params.UniqueID)
+	user, err := getUserFromUniqueID(db, p.String("unique_id"))
 	if err != nil {
 		return fmt.Errorf("could not get user: %w", err)
 	}
 
-	if err := ValidatePassword(params.Password, user.Password, user.Salt); err != nil {
+	if err := ValidatePassword(p.String("password"), user.Password, user.Salt); err != nil {
 		return fmt.Errorf("invalid password: %w", err)
 	}
 
@@ -306,22 +266,9 @@ func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return WriteResult(w, users)
 }
 
-func AddMessageParams(r *http.Request) (interface{}, error) {
-	var params messageParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
-	}
-
-	if params.UserID == 0 || params.Content == "" {
-		return nil, errDataMissing
-	}
-
-	return params, nil
-}
-
 func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
-	params, _ := p.Custom().(messageParams)
-	if err := addMessage(db, UserMessage{UserID: params.UserID, Content: params.Content}); err != nil {
+	userID, content := p.Int("user_id"), p.String("content")
+	if err := addMessage(db, UserMessage{UserID: userID, Content: content}); err != nil {
 		return fmt.Errorf("could not add message to db: %w", err)
 	}
 
