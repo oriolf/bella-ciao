@@ -45,5 +45,8 @@ go_time() {
     fi
     lp=$(loc_prod)
     lt=$(loc_test)
-    echo "$(git_hash),$(pass_fail "$output"),$lp,$lt,$(echo "$lt / $lp" | bc -l),$(todo_count),$(coverage "$output"),$(go_time "$output"),$(real_time "$output")"
+    ratio=$(echo "$lt / $lp" | bc -l)
+    cov=$(coverage "$output")
+    got=$(go_time "$output")
+    echo "$(git_hash),$(pass_fail "$output"),$lp,$lt,${ratio::-16},$(todo_count),${cov::-1},${got::-1},$(real_time "$output")"
 )
