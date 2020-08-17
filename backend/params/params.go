@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/mail"
 	"strconv"
+	"strings"
+	"time"
 )
 
 var (
@@ -20,9 +22,11 @@ var (
 type params struct {
 	kind            string
 	valueKinds      map[string]string
-	validators      map[string][]func(interface{}) error
+	validators      map[string][]func(interface{}) (interface{}, error)
 	customValue     interface{}
 	customValidator func(*http.Request) (interface{}, error)
+	validateFunc    func(Values) error
+	subParams       map[string]func(map[string]interface{}) (Values, error)
 }
 
 type Values map[string]interface{}
@@ -31,7 +35,8 @@ func P(kind string) params {
 	return params{
 		kind:       kind,
 		valueKinds: make(map[string]string),
-		validators: make(map[string][]func(interface{}) error),
+		validators: make(map[string][]func(interface{}) (interface{}, error)),
+		subParams:  make(map[string]func(map[string]interface{}) (Values, error)),
 	}
 }
 
@@ -43,11 +48,11 @@ func Custom(validator func(*http.Request) (interface{}, error)) params {
 	return params{kind: "custom", customValidator: validator}
 }
 
-func (p params) Int(name string, validators ...func(interface{}) error) params {
+func (p params) Int(name string, validators ...func(interface{}) (interface{}, error)) params {
 	return p.newParam("int", name, validators...)
 }
 
-func (p params) String(name string, validators ...func(interface{}) error) params {
+func (p params) String(name string, validators ...func(interface{}) (interface{}, error)) params {
 	return p.newParam("string", name, validators...)
 }
 
@@ -59,7 +64,17 @@ func (p params) Email(name string) params {
 	return p.newParam("string", name, NonEmpty, Email)
 }
 
-func (p params) newParam(kind, name string, validators ...func(interface{}) error) params {
+func (p params) Time(name string, validators ...func(interface{}) (interface{}, error)) params {
+	return p.newParam("time", name, validators...)
+}
+
+func (p params) JSON(name string, x func(map[string]interface{}) (Values, error)) params {
+	p.valueKinds[name] = "json"
+	p.subParams[name] = x
+	return p
+}
+
+func (p params) newParam(kind, name string, validators ...func(interface{}) (interface{}, error)) params {
 	p.valueKinds[name] = kind
 	for _, v := range validators {
 		p.validators[name] = append(p.validators[name], v)
@@ -67,23 +82,54 @@ func (p params) newParam(kind, name string, validators ...func(interface{}) erro
 	return p
 }
 
+func (p params) ValidateFunc(f func(Values) error) params {
+	p.validateFunc = f
+	return p
+}
+
 func (p params) End() func(*http.Request) (Values, error) {
-	return func(r *http.Request) (Values, error) {
+	return func(r *http.Request) (v Values, err error) {
 		switch p.kind {
 		case "query":
-			return endQueryParams(r, p)
+			v, err = p.endQueryParams(r)
 		case "json":
-			return endJsonParams(r, p)
+			v, err = p.endJsonParams(r)
 		case "form":
-			return endFormParams(r, p)
+			v, err = p.endFormParams(r)
 		case "custom":
-			return endCustomParams(r, p)
+			v, err = p.endCustomParams(r)
+		default:
+			panic("unknown params kind!")
 		}
-		panic("unknown params kind!")
+		if err != nil {
+			return nil, err
+		}
+		if p.validateFunc != nil {
+			err = p.validateFunc(v)
+		}
+		return v, err
 	}
 }
 
-func endQueryParams(r *http.Request, p params) (Values, error) {
+func (p params) EndJSON() func(map[string]interface{}) (Values, error) {
+	return func(m map[string]interface{}) (v Values, err error) {
+		switch p.kind {
+		case "json":
+			v, err = p.endJsonParamsAux(m)
+		default:
+			panic("unknown params kind!")
+		}
+		if err != nil {
+			return nil, err
+		}
+		if p.validateFunc != nil {
+			err = p.validateFunc(v)
+		}
+		return v, err
+	}
+}
+
+func (p params) endQueryParams(r *http.Request) (Values, error) {
 	vals := make(Values)
 	for name, kind := range p.valueKinds {
 		switch kind {
@@ -100,11 +146,15 @@ func endQueryParams(r *http.Request, p params) (Values, error) {
 	return vals, nil
 }
 
-func endJsonParams(r *http.Request, p params) (Values, error) {
+func (p params) endJsonParams(r *http.Request) (Values, error) {
 	m, err := getJsonFromBody(r)
 	if err != nil {
 		return nil, fmt.Errorf("could not decode body: %w", err)
 	}
+	return p.endJsonParamsAux(m)
+}
+
+func (p params) endJsonParamsAux(m map[string]interface{}) (Values, error) {
 	vals := make(Values)
 	for name, kind := range p.valueKinds {
 		switch kind {
@@ -117,10 +167,11 @@ func endJsonParams(r *http.Request, p params) (Values, error) {
 			if !ok {
 				return nil, errWrongType
 			}
-			if err := checkValidators(vv, name, p.validators); err != nil {
+			res, err := checkValidators(vv, name, p.validators)
+			if err != nil {
 				return nil, err
 			}
-			vals[name] = vv
+			vals[name] = res
 		case "int":
 			v, ok := m[name]
 			if !ok {
@@ -131,9 +182,50 @@ func endJsonParams(r *http.Request, p params) (Values, error) {
 				return nil, errWrongType
 			}
 			vv := int(f)
-			if err := checkValidators(vv, name, p.validators); err != nil {
+			res, err := checkValidators(vv, name, p.validators)
+			if err != nil {
 				return nil, err
 			}
+			vals[name] = res
+		case "time":
+			v, ok := m[name]
+			if !ok {
+				return nil, errMissingParameter
+			}
+			t, ok := v.(string)
+			if !ok {
+				return nil, errWrongType
+			}
+			tt, err := time.Parse(time.RFC3339Nano, t)
+			if err != nil {
+				return nil, err
+			}
+			res, err := checkValidators(tt, name, p.validators)
+			if err != nil {
+				return nil, err
+			}
+			vals[name] = res
+		case "json":
+			x, ok := m[name]
+			if !ok {
+				return nil, errMissingParameter
+			}
+
+			v, ok := x.(map[string]interface{})
+			if !ok {
+				return nil, errWrongType
+			}
+
+			f, ok := p.subParams[name]
+			if !ok {
+				panic(fmt.Sprintf("unknown subparams %q", name))
+			}
+
+			vv, err := f(v)
+			if err != nil {
+				return nil, err
+			}
+
 			vals[name] = vv
 		default:
 			panic(fmt.Sprintf("unknown value kind %q", kind))
@@ -142,16 +234,17 @@ func endJsonParams(r *http.Request, p params) (Values, error) {
 	return vals, nil
 }
 
-func endFormParams(r *http.Request, p params) (Values, error) {
+func (p params) endFormParams(r *http.Request) (Values, error) {
 	vals := make(Values)
 	for name, kind := range p.valueKinds {
 		switch kind {
 		case "string":
 			v := r.FormValue(name)
-			if err := checkValidators(v, name, p.validators); err != nil {
+			res, err := checkValidators(v, name, p.validators)
+			if err != nil {
 				return nil, err
 			}
-			vals[name] = v
+			vals[name] = res
 		case "file":
 			file, handler, err := r.FormFile(name)
 			if err != nil {
@@ -177,7 +270,7 @@ func endFormParams(r *http.Request, p params) (Values, error) {
 	return vals, nil
 }
 
-func endCustomParams(r *http.Request, p params) (Values, error) {
+func (p params) endCustomParams(r *http.Request) (Values, error) {
 	val, err := p.customValidator(r)
 	if err != nil {
 		return nil, err
@@ -195,20 +288,22 @@ func getQueryInt(r *http.Request, p params, name string) (interface{}, error) {
 	if err != nil {
 		return nil, errWrongType
 	}
-	if err := checkValidators(vv, name, p.validators); err != nil {
+	res, err := checkValidators(vv, name, p.validators)
+	if err != nil {
 		return nil, err
 	}
 
-	return vv, nil
+	return res, nil
 }
 
-func checkValidators(v interface{}, name string, validators map[string][]func(interface{}) error) error {
+func checkValidators(v interface{}, name string, validators map[string][]func(interface{}) (interface{}, error)) (x interface{}, err error) {
 	for i, validator := range validators[name] {
-		if err := validator(v); err != nil {
-			return fmt.Errorf("validator %d failed on parameter %s: %w", i, name, err)
+		v, err = validator(v)
+		if err != nil {
+			return v, fmt.Errorf("validator %d failed on parameter %s: %w", i, name, err)
 		}
 	}
-	return nil
+	return v, nil
 }
 
 func (v Values) Int(name string) int {
@@ -239,6 +334,20 @@ func (v Values) String(name string) string {
 	return s
 }
 
+func (v Values) Time(name string) time.Time {
+	x, ok := v[name]
+	if !ok {
+		panic(fmt.Sprintf("asked for unknown name %q", name))
+	}
+
+	s, ok := x.(time.Time)
+	if !ok {
+		panic(fmt.Sprintf("asked for wrong type, expected time.Time, got %T", x))
+	}
+
+	return s
+}
+
 func (v Values) File(name string) ([]byte, string) {
 	x, ok := v[name]
 	if !ok {
@@ -259,6 +368,20 @@ func (v Values) File(name string) ([]byte, string) {
 	return b, filename
 }
 
+func (v Values) Values(name string) Values {
+	x, ok := v[name]
+	if !ok {
+		panic(fmt.Sprintf("asked for unknown name %q", name))
+	}
+
+	vv, ok := x.(Values)
+	if !ok {
+		panic(fmt.Sprintf("asked for wrong type, expected Values, got %T", x))
+	}
+
+	return vv
+}
+
 func fileNameField(name string) string {
 	return name + ";_;fileNameField"
 }
@@ -267,45 +390,60 @@ func (v Values) Custom() interface{} {
 	return v["custom"]
 }
 
-func PositiveInt(i interface{}) error {
+func PositiveInt(i interface{}) (interface{}, error) {
 	v, ok := i.(int)
 	if !ok {
-		return errWrongType
+		return i, errWrongType
 	}
 	if v <= 0 {
-		return errors.New("int is less or equal to 0")
+		return i, errors.New("int is less or equal to 0")
 	}
 
-	return nil
+	return v, nil
 }
 
 var NonEmpty = MinLength(1)
 
-func MinLength(length int) func(interface{}) error {
-	return func(i interface{}) error {
+func MinLength(length int) func(interface{}) (interface{}, error) {
+	return func(i interface{}) (interface{}, error) {
 		v, ok := i.(string)
 		if !ok {
-			return errWrongType
+			return i, errWrongType
 		}
+		v = strings.TrimSpace(v)
 		if len(v) < length {
-			return fmt.Errorf("string length is less than %d", length)
+			return i, fmt.Errorf("string length is less than %d", length)
 		}
-		return nil
+		return v, nil
 	}
 }
 
-func Email(i interface{}) error {
+func Email(i interface{}) (interface{}, error) {
 	v, ok := i.(string)
 	if !ok {
-		return errWrongType
+		return i, errWrongType
 	}
 
-	_, err := mail.ParseAddress(v)
+	addr, err := mail.ParseAddress(v)
 	if err != nil {
-		return err
+		return i, err
+	}
+	v = addr.Address
+
+	return v, nil
+}
+
+func NonZeroTime(i interface{}) (interface{}, error) {
+	v, ok := i.(time.Time)
+	if !ok {
+		return i, errWrongType
 	}
 
-	return nil
+	if v.IsZero() {
+		return i, errors.New("time should not be zero")
+	}
+
+	return v, nil
 }
 
 func getJsonFromBody(r *http.Request) (m map[string]interface{}, err error) {

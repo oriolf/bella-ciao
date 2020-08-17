@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -114,20 +113,6 @@ func IsAdmin(claims *Claims) bool {
 	return claims != nil && claims.User.Role == "admin"
 }
 
-func GetParams(r *http.Request, model interface{}) error {
-	if r.Body == nil {
-		return errors.New("empty body")
-	}
-
-	defer r.Body.Close()
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(model); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func GetSaltAndHashPassword(pass string) (string, string, error) {
 	salt, err := SafeID()
 	if err != nil {
@@ -205,26 +190,19 @@ func GenerateToken(user User) (string, error) {
 	return token.SignedString(JWTKey)
 }
 
-// TODO take into account user preferences
-func invalidCountType(countType string) bool {
-	return countType != COUNT_BORDA && countType != COUNT_DOWDALL
-}
-
-func invalidRegisterParams(params registerParamsT) (registerParamsT, bool) {
-	address, err := mail.ParseAddress(params.Email)
-	if err == nil {
-		params.Email = address.Address
+func validateElectionParams(v par.Values) error {
+	start, end := v.Time("start"), v.Time("end")
+	if start.After(end) || end.Before(start) {
+		return errors.New("election should end after it starts")
 	}
-	// TODO unique ID validates one of the allowed types
-	return params, params.Name == "" || params.UniqueID == "" || len(params.Password) < MIN_PASSWORD_LENGTH || err != nil
-}
 
-func invalidElectionParams(params electionParams) bool {
-	return params.Name == "" ||
-		params.Start.IsZero() || params.End.IsZero() ||
-		params.Start.After(params.End) || params.End.Before(params.Start) ||
-		invalidCountType(params.CountType) ||
-		params.MaxCandidates == 0 || params.MinCandidates > params.MaxCandidates
+	min, max := v.Int("min_candidates"), v.Int("max_candidates")
+	if min > max {
+		return errors.New("minimum number of candidates cannot be greater than maximum")
+	}
+
+	// TODO also check counttype
+	return nil
 }
 
 func safeCreateFile(folder, filename string) (*os.File, string, error) {

@@ -8,34 +8,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/oriolf/bella-ciao/params"
 )
-
-var errDataMissing = errors.New("needed data missing")
-
-type initializeParams struct {
-	Admin    registerParamsT `json:"admin"`
-	Election electionParams  `json:"election"`
-}
-
-type registerParamsT struct {
-	Name     string `json:"name"`
-	UniqueID string `json:"unique_id"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-type electionParams struct {
-	Name          string    `json:"name"`
-	Start         time.Time `json:"start"`
-	End           time.Time `json:"end"`
-	CountType     string    `json:"count_type"`
-	MaxCandidates int       `json:"max_candidates"`
-	MinCandidates int       `json:"min_candidates"`
-}
 
 func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
 	if initialized := getInitialized(); initialized {
@@ -43,21 +19,6 @@ func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	}
 
 	return nil // only returns OK if not initialized
-}
-
-func InitializeParams(r *http.Request) (interface{}, error) {
-	var params initializeParams
-	if err := GetParams(r, &params); err != nil {
-		return nil, err
-	}
-
-	var invalidRegister bool
-	params.Admin, invalidRegister = invalidRegisterParams(params.Admin)
-	if invalidRegister || invalidElectionParams(params.Election) {
-		return nil, errDataMissing
-	}
-
-	return params, nil
 }
 
 func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
@@ -74,30 +35,26 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return errors.New("an admin user already exists")
 	}
 
-	params, ok := p.Custom().(initializeParams)
-	if !ok {
-		return errors.New("wrong params model")
-	}
-
-	admin := params.Admin
-	password, salt, err := GetSaltAndHashPassword(admin.Password)
+	admin := p.Values("admin")
+	pass, name, email, uniqueID := admin.String("password"), admin.String("name"), admin.String("email"), admin.String("unique_id")
+	password, salt, err := GetSaltAndHashPassword(pass)
 	if err != nil {
 		return fmt.Errorf("could not get salt or hash password: %w", err)
 	}
 
-	user := User{Name: admin.Name, Email: admin.Email, UniqueID: admin.UniqueID, Password: password, Salt: salt}
+	user := User{Name: name, Email: email, UniqueID: uniqueID, Password: password, Salt: salt}
 	if err := RegisterUserAdmin(db, user); err != nil {
 		return fmt.Errorf("could not register user in db: %w", err)
 	}
 
-	e := params.Election
+	e := p.Values("election")
 	election := Election{
-		Name:          e.Name,
-		Start:         e.Start,
-		End:           e.End,
-		CountType:     e.CountType,
-		MinCandidates: e.MinCandidates,
-		MaxCandidates: e.MaxCandidates,
+		Name:          e.String("name"),
+		Start:         e.Time("start"),
+		End:           e.Time("end"),
+		CountType:     e.String("count_type"),
+		MinCandidates: e.Int("min_candidates"),
+		MaxCandidates: e.Int("max_candidates"),
 	}
 	if err := createElection(db, election); err != nil {
 		return fmt.Errorf("could not create election: %w", err)

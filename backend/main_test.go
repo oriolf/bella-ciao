@@ -76,7 +76,16 @@ func TestAPI(t *testing.T) {
 
 	admin := newUser("admin", "admin@example.com", uniqueID1, "12345678")
 	electionStart, electionEnd := time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour)
-	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
+
+	election := newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 5)
+	t.Run("Empty site cannot be initialized with wrong parameters",
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+
+	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 5, 2)
+	t.Run("Empty site cannot be initialized with wrong parameters",
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+
+	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
 	t.Run("Empty site can be initialized",
 		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
 

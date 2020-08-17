@@ -21,11 +21,12 @@ var (
 			String("unique_id", par.NonEmpty).
 			String("password", par.NonEmpty).End()
 
-	registerParams = par.P("json").
-			String("name", par.NonEmpty).
-			String("unique_id", par.NonEmpty).
-			Email("email").
-			String("password", par.MinLength(MIN_PASSWORD_LENGTH)).End()
+	registerParamsAux = par.P("json").
+				String("name", par.NonEmpty).
+				String("unique_id", par.NonEmpty). // TODO also check unique_id in list of all possible
+				Email("email").
+				String("password", par.MinLength(MIN_PASSWORD_LENGTH))
+	registerParams = registerParamsAux.End()
 
 	addMessageParams = par.P("json").
 				Int("user_id", par.PositiveInt).
@@ -40,9 +41,22 @@ var (
 				String("name", par.NonEmpty).
 				String("presentation", par.NonEmpty).End()
 
+	electionParamsAux = par.P("json").
+				String("name", par.NonEmpty).
+				Time("start", par.NonZeroTime).
+				Time("end", par.NonZeroTime).
+				String("count_type", par.NonEmpty). // TODO also check count_type in list of all possible
+				Int("min_candidates", par.PositiveInt).
+				Int("max_candidates", par.PositiveInt).
+				ValidateFunc(validateElectionParams)
+
+	initializeParams = par.P("json").
+				JSON("admin", registerParamsAux.EndJSON()).
+				JSON("election", electionParamsAux.EndJSON()).End()
+
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, NoToken, Uninitialized),
-		"/initialize":    handler(par.Custom(InitializeParams).End(), NoToken, Initialize),
+		"/initialize":    handler(initializeParams, NoToken, Initialize),
 
 		"/auth/register": handler(registerParams, NoToken, Register),
 		"/auth/login":    handler(loginParams, NoToken, Login),
