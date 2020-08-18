@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -244,11 +246,54 @@ func missingMessage(messageID int, messages []UserMessage) bool {
 	return true
 }
 
-// TODO
-func validateDNI(s string) error { return nil }
+// from https://github.com/amnesty/drupal-nif-nie-cif-validator/blob/master/includes/nif-nie-cif.php
+var dniRegex = regexp.MustCompile("^[0-9]{8}[A-Z]$")
+var dniLetters = "TRWAGMYFPDXBNJZSQVHLCKE"
 
-// TODO
-func validateNIE(s string) error { return nil }
+func validateDNI(s string) error {
+	if !dniRegex.MatchString(s) {
+		return errors.New("does not validate dni format")
+	}
 
-// TODO
-func validatePASSPORT(s string) error { return nil }
+	return controlCharacterMatches(s)
+}
+
+func controlCharacterMatches(s string) error {
+	index, err := strconv.Atoi(s[:8])
+	if err != nil {
+		return fmt.Errorf("could not sum digits: %w", err)
+	}
+
+	index = index % 23
+	if s[8:9] != dniLetters[index:index+1] {
+		return errors.New("control character does not match")
+	}
+
+	return nil
+}
+
+var nieRegex = regexp.MustCompile("^[XYZ][0-9]{7}[A-Z]$")
+
+func validateNIE(s string) error {
+	if !nieRegex.MatchString(s) {
+		return errors.New("does not validate nie format")
+	}
+
+	start := s[:8]
+	start = strings.ReplaceAll(start, "X", "0")
+	start = strings.ReplaceAll(start, "Y", "1")
+	start = strings.ReplaceAll(start, "Z", "2")
+	control := s[8:9]
+	return controlCharacterMatches(start + control)
+}
+
+// from https://es.stackoverflow.com/questions/67041/validar-pasaporte-y-dni-espa%C3%B1oles
+var passportRegex = regexp.MustCompile("^[A-Z]{3}[0-9]{6}[A-Z]$")
+
+func validatePASSPORT(s string) error {
+	if !passportRegex.MatchString(s) {
+		return errors.New("does not validate passport format")
+	}
+
+	return nil
+}

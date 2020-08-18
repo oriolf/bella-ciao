@@ -416,6 +416,15 @@ func MinLength(length int) func(interface{}) (interface{}, error) {
 	}
 }
 
+func UpperCase(i interface{}) (interface{}, error) {
+	v, ok := i.(string)
+	if !ok {
+		return i, errWrongType
+	}
+
+	return strings.ToUpper(v), nil
+}
+
 func Email(i interface{}) (interface{}, error) {
 	v, ok := i.(string)
 	if !ok {

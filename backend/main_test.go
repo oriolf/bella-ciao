@@ -50,6 +50,7 @@ type expectedFile struct {
 // TODO test some endpoints with bad params to check 400 responses
 // TODO error codes should have rational meaning
 // TODO HTTP methods should have rational meaning
+// TODO test DNI and NIE code with several examples
 func TestAPI(t *testing.T) {
 	bootstrap()
 
@@ -74,13 +75,21 @@ func TestAPI(t *testing.T) {
 	t.Run("Uninitialized site should reject logins",
 		testEndpoint("/auth/login", 401, to{method: "POST", params: login2}))
 
-	admin := newUser("admin", "admin@example.com", uniqueID1, "12345678")
+	admin := newUser("admin", "admin@example.com", "21111111H", "12345678")
 	electionStart, electionEnd := time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour)
 
-	election := newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 5)
+	// wrong admin unique id
+	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
 
+	// wrong election start and end
+	admin["unique_id"] = uniqueID1
+	election = newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 5)
+	t.Run("Empty site cannot be initialized with wrong parameters",
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+
+	// wrong election min and max candidates
 	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 5, 2)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))

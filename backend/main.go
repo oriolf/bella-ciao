@@ -23,7 +23,7 @@ var (
 
 	registerParamsAux = par.P("json").
 				String("name", par.NonEmpty).
-				String("unique_id", par.NonEmpty, par.StringValidates(ID_VALIDATION_FUNCS)).
+				String("unique_id", par.NonEmpty, par.UpperCase, par.StringValidates(ID_VALIDATION_FUNCS)).
 				Email("email").
 				String("password", par.MinLength(MIN_PASSWORD_LENGTH))
 	registerParams = registerParamsAux.End()
