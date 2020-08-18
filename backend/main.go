@@ -55,30 +55,30 @@ var (
 				JSON("election", electionParamsAux.EndJSON()).End()
 
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-		"/uninitialized": handler(noParams, NoToken, Uninitialized),
-		"/initialize":    handler(initializeParams, NoToken, Initialize),
+		"/uninitialized": handler(noParams, noToken, Uninitialized),
+		"/initialize":    handler(initializeParams, noToken, Initialize),
 
-		"/auth/register": handler(registerParams, NoToken, Register),
-		"/auth/login":    handler(loginParams, NoToken, Login),
+		"/auth/register": handler(registerParams, noToken, Register),
+		"/auth/login":    handler(loginParams, noToken, Login),
 
-		"/users/files/own":      handler(noParams, UserToken, GetOwnFiles),
-		"/users/files/delete":   handler(idParams, FileOwnerOrAdminToken, DeleteFile),
-		"/users/files/download": handler(idParams, FileOwnerOrAdminToken, DownloadFile),
-		"/users/files/upload":   handler(uploadFileParams, UserToken, UploadFile),
+		"/users/files/own":      handler(noParams, requireToken, GetOwnFiles),
+		"/users/files/delete":   handler(idParams, tokenFuncs(requireToken, fileOwnerOrAdminToken), DeleteFile),
+		"/users/files/download": handler(idParams, tokenFuncs(requireToken, fileOwnerOrAdminToken), DownloadFile),
+		"/users/files/upload":   handler(uploadFileParams, requireToken, UploadFile),
 
-		"/users/unvalidated/get": handler(noParams, AdminToken, GetUnvalidatedUsers),
-		"/users/validated/get":   handler(noParams, AdminToken, GetValidatedUsers),
-		"/users/messages/add":    handler(addMessageParams, AdminToken, AddMessage),
-		"/users/messages/own":    handler(noParams, UserToken, GetOwnMessages),
-		"/users/messages/solve":  handler(idParams, MessageOwnerOrAdminToken, SolveMessage),
-		"/users/validate":        handler(idParams, AdminToken, ValidateUser),
+		"/users/unvalidated/get": handler(noParams, tokenFuncs(requireToken, adminToken), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(noParams, tokenFuncs(requireToken, adminToken), GetValidatedUsers),
+		"/users/messages/add":    handler(addMessageParams, tokenFuncs(requireToken, adminToken), AddMessage),
+		"/users/messages/own":    handler(noParams, requireToken, GetOwnMessages),
+		"/users/messages/solve":  handler(idParams, tokenFuncs(requireToken, messageOwnerOrAdminToken), SolveMessage),
+		"/users/validate":        handler(idParams, tokenFuncs(requireToken, adminToken), ValidateUser),
 
-		"/candidates/get":    handler(noParams, NoToken, GetCandidates),
-		"/candidates/add":    handler(addCandidateParams, AdminToken, AddCandidate),
-		"/candidates/delete": handler(idParams, AdminToken, DeleteCandidate),
+		"/candidates/get":    handler(noParams, noToken, GetCandidates),
+		"/candidates/add":    handler(addCandidateParams, tokenFuncs(requireToken, adminToken), AddCandidate),
+		"/candidates/delete": handler(idParams, tokenFuncs(requireToken, adminToken), DeleteCandidate),
 
-		"/elections/get":     handler(noParams, NoToken, GetElections),
-		"/elections/publish": handler(idParams, AdminToken, PublishElection),
+		"/elections/get":     handler(noParams, noToken, GetElections),
+		"/elections/publish": handler(idParams, tokenFuncs(requireToken, adminToken), PublishElection),
 		// TODO store allowed identification types and count methods as part of the initialization
 		// TODO validate (and test) that unique IDs and count methods are one of the allowed
 		// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
@@ -140,7 +140,7 @@ func getInitialized() bool {
 
 func handler(
 	paramsFunc func(*http.Request) (par.Values, error),
-	tokenFunc func(*sql.DB, *http.Request, par.Values) (*jwt.Token, *Claims, error),
+	tokenFunc func(*sql.DB, *Claims, par.Values, error) error,
 	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, par.Values) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -180,8 +180,8 @@ func handler(
 		}
 		defer db.Close()
 
-		token, claims, err := tokenFunc(db, r, params) // token func validates permissions too
-		if err != nil {
+		token, claims, err := getRequestToken(r)
+		if err := tokenFunc(db, claims, params, err); err != nil { // token func validates permissions too
 			log.Println("Error validating token:", err)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
@@ -191,5 +191,17 @@ func handler(
 			log.Println("Error handling request:", err)
 			http.Error(w, "", http.StatusInternalServerError)
 		}
+	}
+}
+
+func tokenFuncs(fs ...func(*sql.DB, *Claims, par.Values, error) error) func(*sql.DB, *Claims, par.Values, error) error {
+	return func(db *sql.DB, claims *Claims, values par.Values, err error) error {
+		for _, f := range fs {
+			err = f(db, claims, values, err)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 }

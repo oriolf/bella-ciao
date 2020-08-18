@@ -26,16 +26,7 @@ var (
 	fileUploadMutex sync.Mutex
 )
 
-func NoToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return &jwt.Token{}, nil, nil
-	}
-
-	return token, claims, nil
-}
-
-func UserToken(db *sql.DB, r *http.Request, params par.Values) (token *jwt.Token, claims *Claims, err error) {
+func getRequestToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
 	auth := r.Header.Get("Authorization")
 	parts := strings.Split(auth, " ")
 	if len(parts) < 2 {
@@ -53,60 +44,40 @@ func UserToken(db *sql.DB, r *http.Request, params par.Values) (token *jwt.Token
 	return token, claims, nil
 }
 
-func ValidatedToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role == ROLE_NONE {
-		return token, claims, errors.New("none role")
-	}
-
-	return token, claims, nil
+func noToken(db *sql.DB, claims *Claims, values par.Values, err error) error {
+	return nil
 }
 
-func AdminToken(db *sql.DB, r *http.Request, params par.Values) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, params)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
-	if claims.Role != ROLE_ADMIN {
-		return token, claims, errors.New("non admin role")
-	}
-
-	return token, claims, nil
+func requireToken(db *sql.DB, claims *Claims, values par.Values, err error) error {
+	return err
 }
 
-func FileOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, vals)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
+func adminToken(db *sql.DB, claims *Claims, values par.Values, err error) error {
+	if claims.Role != ROLE_ADMIN {
+		return errors.New("non admin role")
 	}
 
+	return nil
+}
+
+func fileOwnerOrAdminToken(db *sql.DB, claims *Claims, values par.Values, err error) error {
 	if claims.Role != ROLE_ADMIN {
-		if err := checkFileOwnedByUser(db, vals.Int("id"), claims.User.ID); err != nil {
-			return token, claims, fmt.Errorf("not admin and file not owned: %w", err)
+		if err := checkFileOwnedByUser(db, values.Int("id"), claims.User.ID); err != nil {
+			return fmt.Errorf("not admin and file not owned: %w", err)
 		}
 	}
 
-	return token, claims, nil
+	return nil
 }
 
-func MessageOwnerOrAdminToken(db *sql.DB, r *http.Request, vals par.Values) (*jwt.Token, *Claims, error) {
-	token, claims, err := UserToken(db, r, vals)
-	if err != nil {
-		return token, claims, fmt.Errorf("error getting token: %w", err)
-	}
-
+func messageOwnerOrAdminToken(db *sql.DB, claims *Claims, values par.Values, err error) error {
 	if claims.Role != ROLE_ADMIN {
-		if err := checkMessageOwnedByUser(db, vals.Int("id"), claims.User.ID); err != nil {
-			return token, claims, fmt.Errorf("not admin and message not owned: %w", err)
+		if err := checkMessageOwnedByUser(db, values.Int("id"), claims.User.ID); err != nil {
+			return fmt.Errorf("not admin and message not owned: %w", err)
 		}
 	}
 
-	return token, claims, nil
+	return nil
 }
 
 func IsAdmin(claims *Claims) bool {
