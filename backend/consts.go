@@ -1,4 +1,4 @@
-// TODO maybe some consts could be defined by environment variables
+// TODO maybe some consts could be defined by environment variables; that would require that dart constants also come from the environment...
 package main
 
 import (
@@ -27,8 +27,21 @@ const (
 	DB_FILE        = "db.db"
 )
 
-var SQLITE_TIME_FORMAT = ""
+var (
+	SQLITE_TIME_FORMAT = ""
+
+	COUNT_METHODS       = []string{COUNT_BORDA, COUNT_DOWDALL}
+	ID_VALIDATION_FUNCS = map[string]func(string) error{
+		ID_DNI:      validateDNI,
+		ID_NIE:      validateNIE,
+		ID_PASSPORT: validatePASSPORT,
+	}
+	ID_FORMATS []string
+)
 
 func init() {
 	SQLITE_TIME_FORMAT = strings.Replace(time.RFC3339Nano, "T", " ", 1)
+	for k := range ID_VALIDATION_FUNCS {
+		ID_FORMATS = append(ID_FORMATS, k)
+	}
 }

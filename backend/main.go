@@ -23,7 +23,7 @@ var (
 
 	registerParamsAux = par.P("json").
 				String("name", par.NonEmpty).
-				String("unique_id", par.NonEmpty). // TODO also check unique_id in list of all possible
+				String("unique_id", par.NonEmpty, par.StringValidates(ID_VALIDATION_FUNCS)).
 				Email("email").
 				String("password", par.MinLength(MIN_PASSWORD_LENGTH))
 	registerParams = registerParamsAux.End()
@@ -45,7 +45,7 @@ var (
 				String("name", par.NonEmpty).
 				Time("start", par.NonZeroTime).
 				Time("end", par.NonZeroTime).
-				String("count_type", par.NonEmpty). // TODO also check count_type in list of all possible
+				String("count_method", par.StringIn(COUNT_METHODS)).
 				Int("min_candidates", par.PositiveInt).
 				Int("max_candidates", par.PositiveInt).
 				ValidateFunc(validateElectionParams)
@@ -79,9 +79,12 @@ var (
 
 		"/elections/get":     handler(noParams, noToken, GetElections),
 		"/elections/publish": handler(idParams, tokenFuncs(requireToken, adminToken), PublishElection),
-		// TODO store allowed identification types and count methods as part of the initialization
-		// TODO validate (and test) that unique IDs and count methods are one of the allowed
-		// TODO implement and test /config/update (for global options), /elections/update, /elections/vote, etc.
+		// TODO store allowed identification types as part of the initialization
+		// TODO implement and test /config/update (for global options), /elections/update
+		// validate and test count method in COUNT_METHODS on initialize, /elections/update
+		// validate and test unique ID on register
+		// /config/update can only add allowed identification formats, not remove them
+		// TODO implement and test /elections/vote, etc.
 	}
 
 	initialized struct {

@@ -52,7 +52,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		Name:          e.String("name"),
 		Start:         e.Time("start"),
 		End:           e.Time("end"),
-		CountType:     e.String("count_type"),
+		CountMethod:   e.String("count_method"),
 		MinCandidates: e.Int("min_candidates"),
 		MaxCandidates: e.Int("max_candidates"),
 	}

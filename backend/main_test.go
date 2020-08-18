@@ -294,12 +294,12 @@ func newUser(name, email, uniqueID, password string) map[string]interface{} {
 	}
 }
 
-func newElection(name, countType string, start, end time.Time, minCandidates, maxCandidates int) Election {
+func newElection(name, countMethod string, start, end time.Time, minCandidates, maxCandidates int) Election {
 	return Election{
 		Name:          name,
 		Start:         start,
 		End:           end,
-		CountType:     countType,
+		CountMethod:   countMethod,
 		MinCandidates: minCandidates,
 		MaxCandidates: maxCandidates,
 	}

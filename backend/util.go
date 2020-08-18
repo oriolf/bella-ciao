@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	// TODO move to environment?
+	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
 	JWTKey          = []byte("my_secret_key")
 	fileUploadMutex sync.Mutex
 )
@@ -172,7 +172,6 @@ func validateElectionParams(v par.Values) error {
 		return errors.New("minimum number of candidates cannot be greater than maximum")
 	}
 
-	// TODO also check counttype
 	return nil
 }
 
@@ -244,3 +243,12 @@ func missingMessage(messageID int, messages []UserMessage) bool {
 	}
 	return true
 }
+
+// TODO
+func validateDNI(s string) error { return nil }
+
+// TODO
+func validateNIE(s string) error { return nil }
+
+// TODO
+func validatePASSPORT(s string) error { return nil }

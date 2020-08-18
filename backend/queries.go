@@ -45,7 +45,7 @@ func InitDB(db *sql.DB) error {
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
 	var start, end string
-	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountType, &e.MaxCandidates, &e.MinCandidates, &e.Public)
+	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountMethod, &e.MaxCandidates, &e.MinCandidates, &e.Public)
 	if err != nil {
 		return nil, fmt.Errorf("could not scan: %w", err)
 	}
@@ -169,9 +169,9 @@ func registerUser(db *sql.DB, user User, role string) error {
 }
 
 func createElection(db *sql.DB, e Election) error {
-	query := `INSERT INTO elections (name, date_start, date_end, public, count_type, max_candidates, min_candidates) 
+	query := `INSERT INTO elections (name, date_start, date_end, public, count_method, max_candidates, min_candidates) 
               VALUES (?, ?, ?, ?, ?, ?, ?);`
-	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountType, e.MaxCandidates, e.MinCandidates)
+	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountMethod, e.MaxCandidates, e.MinCandidates)
 	return err
 }
 
@@ -331,7 +331,7 @@ func deleteCandidate(db *sql.DB, id int) error {
 
 func getElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	results, err := queryDB(db, scanElection, `
-		SELECT id, name, date_start, date_end, count_type, max_candidates, min_candidates, public 
+		SELECT id, name, date_start, date_end, count_method, max_candidates, min_candidates, public 
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
 	if err != nil {
 		return nil, fmt.Errorf("error querying elections: %w", err)

@@ -1,5 +1,3 @@
-// TODO validators should clean up values in addition to validate them
-// TODO strip blank space, clean email, etc.
 package par
 
 import (
@@ -431,6 +429,49 @@ func Email(i interface{}) (interface{}, error) {
 	v = addr.Address
 
 	return v, nil
+}
+
+func StringIn(l []string) func(interface{}) (interface{}, error) {
+	return func(i interface{}) (interface{}, error) {
+		v, ok := i.(string)
+		if !ok {
+			return i, errWrongType
+		}
+
+		if !stringInSlice(v, l) {
+			return i, fmt.Errorf("value %s not in allowed values list", v)
+		}
+
+		return v, nil
+	}
+}
+
+func StringValidates(m map[string]func(string) error) func(interface{}) (interface{}, error) {
+	return func(i interface{}) (interface{}, error) {
+		v, ok := i.(string)
+		if !ok {
+			return i, errWrongType
+		}
+
+		var names []string
+		for name, f := range m {
+			names = append(names, name)
+			if err := f(v); err == nil {
+				return v, nil
+			}
+		}
+
+		return v, fmt.Errorf("string %q did not validate any format %v", v, names)
+	}
+}
+
+func stringInSlice(s string, l []string) bool {
+	for _, x := range l {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 func NonZeroTime(i interface{}) (interface{}, error) {
