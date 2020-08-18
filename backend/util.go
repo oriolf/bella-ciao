@@ -39,6 +39,9 @@ func getRequestToken(r *http.Request) (token *jwt.Token, claims *Claims, err err
 	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
 		return JWTKey, nil
 	})
+	if err != nil {
+		return token, claims, fmt.Errorf("error parsing token: %w", err)
+	}
 	if !token.Valid {
 		return token, claims, errors.New("invalid token")
 	}

@@ -47,8 +47,6 @@ type expectedFile struct {
 	description string
 }
 
-// TODO test some endpoints with bad params to check 400 responses
-// TODO error codes should have rational meaning
 // TODO HTTP methods should have rational meaning
 // TODO test DNI and NIE code with several examples
 func TestAPI(t *testing.T) {
@@ -98,21 +96,25 @@ func TestAPI(t *testing.T) {
 	t.Run("Empty site can be initialized",
 		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
 
-	t.Run("Initialized site should accept registers",
+	t.Run("Users should be able to register",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user2}))
-	t.Run("Initialized site should accept registers",
+	t.Run("Users should be able to register",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user3}))
-	t.Run("Initialized site should not accept registers for duplicate emails",
+	t.Run("Registers with invalid parameters should be rejected",
+		testEndpoint("/auth/register", 400, to{method: "POST", params: m{"name": "asd@example.com"}}))
+	t.Run("Registers with duplicated emails should be rejected",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
 	// Initialized site should not accept registers for non-accepted ID types
 
 	var token1, token2, token3 string
-	t.Run("Initialized site should accept logins from admin",
+	t.Run("Admin should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resToken: &token1}))
-	t.Run("Initialized site should accept logins from registered user",
+	t.Run("User should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resToken: &token2}))
-	t.Run("Initialized site should accept logins from another registered user",
+	t.Run("Another user should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resToken: &token3}))
+	t.Run("Log in with invalid parameters should be rejected",
+		testEndpoint("/auth/login", 400, to{method: "POST", params: m{"unique_id": uniqueID1}}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID2, role: ROLE_NONE},
@@ -141,6 +143,8 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("Another user should be able to upload files",
 		testEndpoint("/users/files/upload", 200, to{token: token3, file: expectedFile{description: "file", name: "testfile.txt"}}))
+	t.Run("User should not be able to upload files without description",
+		testEndpoint("/users/files/upload", 400, to{token: token2, file: expectedFile{description: "", name: "testfile.txt"}}))
 
 	t.Run("User should be able to get its files",
 		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
@@ -149,6 +153,9 @@ func TestAPI(t *testing.T) {
 
 	t.Run("User should be able to delete its files",
 		testEndpoint("/users/files/delete", 200, to{token: token2, query: "?id=2"}))
+	t.Run("User should not be able to delete files with invalid parameters",
+		testEndpoint("/users/files/delete", 400, to{token: token2, query: "?id=-1"}))
+
 	t.Run("User deleted file should have disappeared",
 		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
@@ -161,6 +168,8 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=2"}))
 	t.Run("User should not be able to download another user's files",
 		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=4"}))
+	t.Run("User should not be able to download files with invalid parameters",
+		testEndpoint("/users/files/download", 400, to{token: token2, query: "?id=0"}))
 	t.Run("User should not be able to delete another user's files",
 		testEndpoint("/users/files/delete", 401, to{token: token2, query: "?id=4"}))
 
@@ -207,6 +216,8 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/messages/solve", 200, to{token: token2, query: "?id=1"}))
 	t.Run("Logged user should not be able to solve another user's messages",
 		testEndpoint("/users/messages/solve", 401, to{token: token2, query: "?id=3"}))
+	t.Run("Logged user should not be able to solve messages with invalid parameters",
+		testEndpoint("/users/messages/solve", 400, to{token: token2, query: "?id=-123"}))
 	t.Run("Admin user should be able to solve another user's messages",
 		testEndpoint("/users/messages/solve", 200, to{token: token1, query: "?id=3"}))
 
@@ -222,6 +233,8 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/validate", 401, to{query: "?id=2"}))
 	t.Run("Non-admin user should not be able to validate users",
 		testEndpoint("/users/validate", 401, to{token: token2, query: "?id=2"}))
+	t.Run("Admin user should be able to validate users with invalid paramters",
+		testEndpoint("/users/validate", 400, to{token: token1, query: "?id=0"}))
 	t.Run("Admin user should be able to validate users",
 		testEndpoint("/users/validate", 200, to{token: token1, query: "?id=2"}))
 
@@ -243,11 +256,14 @@ func TestAPI(t *testing.T) {
 
 	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation", Image: "candidate.jpg"}
 	candidate2 := Candidate{Name: "candidate 2", Presentation: "candidate 2 presentation", Image: "candidate.jpg"}
+	candidateWrong := Candidate{Name: "", Presentation: "candidate wrong presentation", Image: "candidate.jpg"}
 
 	t.Run("Non-logged users should not be able to add candidates",
 		testEndpoint("/candidates/add", 401, to{candidate: candidate1}))
 	t.Run("Non-admin users should not be able to add candidates",
 		testEndpoint("/candidates/add", 401, to{token: token2, candidate: candidate1}))
+	t.Run("Admin users should not be able to add candidates with invalid parameters",
+		testEndpoint("/candidates/add", 400, to{token: token1, candidate: candidateWrong}))
 	t.Run("Admin users should be able to add candidates",
 		testEndpoint("/candidates/add", 200, to{token: token1, candidate: candidate1}))
 	t.Run("Admin users should be able to add candidates",
