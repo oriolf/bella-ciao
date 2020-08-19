@@ -2,10 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -14,6 +16,8 @@ import (
 )
 
 var (
+	queryCount uint64
+
 	idParams = par.P("query").Int("id", par.PositiveInt).End()
 	noParams = par.None()
 
@@ -96,45 +100,58 @@ var (
 )
 
 func main() {
-	bootstrap()
+	if err := bootstrap(); err != nil {
+		log.Fatalln("Could not bootstrap:", err)
+	}
 
 	log.Println("Completed bootstrap, start listening...")
 	log.Fatalln(http.ListenAndServe(":9876", nil))
 }
 
-func bootstrap() {
+func bootstrap() error {
 	db, err := sql.Open("sqlite3", DB_FILE)
 	if err != nil {
-		log.Fatalln("Error during database connection:", err)
+		return fmt.Errorf("error during database connection: %w", err)
 	}
 	defer db.Close()
 
-	if err := InitDB(db); err != nil {
-		log.Fatalln("Error during database initialization:", err)
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("error beginning transaction: %w", err)
 	}
 
-	checkInitialized(db)
+	if err := InitDB(tx); err != nil {
+		return fmt.Errorf("error during database initialization: %w", err)
+	}
+
+	count, err := countElections(tx)
+	if err != nil {
+		return fmt.Errorf("could not count elections in check initialized: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	if count > 0 {
+		initialized.value = true
+	}
 
 	if _, err := os.Stat(UPLOADS_FOLDER); err != nil {
 		if err := os.Mkdir(UPLOADS_FOLDER, 0755); err != nil {
-			log.Fatalln("Could not create uploads folder:", err)
+			return fmt.Errorf("could not create uploads folder: %w", err)
 		}
 	}
 
 	for path, handler := range appHandlers {
 		http.HandleFunc(path, handler)
 	}
+
+	return nil
 }
 
-func checkInitialized(db *sql.DB) {
-	count, err := countElections(db)
-	if err != nil {
-		log.Fatalln("Could not count elections in check initialized:", err)
-	}
-
-	if count > 0 {
-		initialized.value = true
-	}
+func checkInitialized(db *sql.Tx) {
 }
 
 func getInitialized() bool {
@@ -145,13 +162,14 @@ func getInitialized() bool {
 
 func handler(
 	paramsFunc func(*http.Request) (par.Values, error),
-	tokenFunc func(*sql.DB, *Claims, par.Values, error) error,
-	handleFunc func(http.ResponseWriter, *sql.DB, *jwt.Token, *Claims, par.Values) error,
+	tokenFunc func(*sql.Tx, *Claims, par.Values, error) error,
+	handleFunc func(http.ResponseWriter, *sql.Tx, *jwt.Token, *Claims, par.Values) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddUint64(&queryCount, 1)
 		if initialized := getInitialized(); !initialized {
 			if r.URL.Path != "/initialize" && r.URL.Path != "/uninitialized" {
-				log.Printf("Invalid method %q before initialization\n", r.URL.Path)
+				log.Printf("[%d] Invalid method %q before initialization\n", n, r.URL.Path)
 				http.Error(w, "", http.StatusUnauthorized)
 				return
 			}
@@ -171,38 +189,58 @@ func handler(
 			return
 		}
 
-		log.Println("Received petition to", r.URL.Path)
+		log.Printf("[%d] Received petition to %s\n", n, r.URL.Path)
 		params, err := paramsFunc(r)
 		if err != nil {
-			log.Println("Error validating parameters:", err)
+			log.Printf("[%d] Error validating parameters: %s\n", n, err)
 			http.Error(w, "", http.StatusBadRequest)
 			return
 		}
 
 		db, err := sql.Open("sqlite3", DB_FILE)
 		if err != nil {
-			log.Fatalln("Error during database connection in handler:", err)
+			log.Fatalf("[%d] Error during database connection in handler: %s\n", n, err)
 		}
 		defer db.Close()
 
-		// TODO wrap everything in a transaction, update the rest of the code accordingly
+		tx, err := db.Begin()
+		if err != nil {
+			log.Printf("[%d] Could not begin transaction: %s\n", n, err)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
 
 		token, claims, err := getRequestToken(r)
-		if err := tokenFunc(db, claims, params, err); err != nil { // token func validates permissions too
-			log.Println("Error validating token:", err)
+		if err := tokenFunc(tx, claims, params, err); err != nil { // token func validates permissions too
+			log.Printf("[%d] Error validating token: %s\n", n, err)
+			rollback(n, tx)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 
-		if err := handleFunc(w, db, token, claims, params); err != nil {
-			log.Println("Error handling request:", err)
+		if err := handleFunc(w, tx, token, claims, params); err != nil {
+			log.Printf("[%d] Error handling request: %s\n", n, err)
+			rollback(n, tx)
+			http.Error(w, "", http.StatusInternalServerError)
+			return
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Printf("[%d] Error commiting transaction: %s.", n, err)
+			rollback(n, tx)
 			http.Error(w, "", http.StatusInternalServerError)
 		}
 	}
 }
 
-func tokenFuncs(fs ...func(*sql.DB, *Claims, par.Values, error) error) func(*sql.DB, *Claims, par.Values, error) error {
-	return func(db *sql.DB, claims *Claims, values par.Values, err error) error {
+func rollback(n uint64, tx *sql.Tx) {
+	if err := tx.Rollback(); err != nil {
+		log.Printf("[%d] Error during transaction rollback: %s\n", n, err)
+	}
+}
+
+func tokenFuncs(fs ...func(*sql.Tx, *Claims, par.Values, error) error) func(*sql.Tx, *Claims, par.Values, error) error {
+	return func(db *sql.Tx, claims *Claims, values par.Values, err error) error {
 		for _, f := range fs {
 			err = f(db, claims, values, err)
 			if err != nil {

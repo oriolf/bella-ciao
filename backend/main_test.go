@@ -468,10 +468,12 @@ func checkAppState(expectedUsers []expectedUser) func(*testing.T) {
 		}
 		defer db.Close()
 
-		users, err := getAllUsers(db)
+		tx, _ := db.Begin()
+		users, err := getAllUsers(tx)
 		if err != nil {
 			t.Errorf("Error getting all users: %s.", err)
 		}
+		tx.Rollback()
 
 		compareUsers(t, expectedUsers, users)
 	}

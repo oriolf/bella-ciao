@@ -23,7 +23,7 @@ type queriedUser struct {
 	MessageSolved   *bool
 }
 
-func InitDB(db *sql.DB) error {
+func InitDB(db *sql.Tx) error {
 	types := []DBType{
 		User{},
 		UserFile{},
@@ -103,7 +103,7 @@ func scanUserMessage(rows *sql.Rows) (interface{}, error) {
 
 // helpers
 
-func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stmt string, args ...interface{}) ([]interface{}, error) {
+func queryDB(db *sql.Tx, scanFunc func(rows *sql.Rows) (interface{}, error), stmt string, args ...interface{}) ([]interface{}, error) {
 	rows, err := db.Query(stmt, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error during query: %w", err)
@@ -128,7 +128,7 @@ func queryDB(db *sql.DB, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 	return res, nil
 }
 
-func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
+func countDB(db *sql.Tx, query string, args ...interface{}) (int, error) {
 	results, err := queryDB(db, scanCount, query, args...)
 	if err != nil {
 		return 0, fmt.Errorf("error querying count: %w", err)
@@ -148,44 +148,44 @@ func countDB(db *sql.DB, query string, args ...interface{}) (int, error) {
 
 // api related queries
 
-func countElections(db *sql.DB) (int, error) {
+func countElections(db *sql.Tx) (int, error) {
 	return countDB(db, "SELECT COUNT(1) FROM elections;")
 }
 
-func countAdminUsers(db *sql.DB) (int, error) {
+func countAdminUsers(db *sql.Tx) (int, error) {
 	return countDB(db, "SELECT COUNT(1) FROM users WHERE role LIKE ?;", ROLE_ADMIN)
 }
 
-func RegisterUser(db *sql.DB, user User) error {
+func RegisterUser(db *sql.Tx, user User) error {
 	return registerUser(db, user, ROLE_NONE)
 }
 
-func RegisterUserAdmin(db *sql.DB, user User) error {
+func RegisterUserAdmin(db *sql.Tx, user User) error {
 	return registerUser(db, user, ROLE_ADMIN)
 }
 
-func registerUser(db *sql.DB, user User, role string) error {
+func registerUser(db *sql.Tx, user User, role string) error {
 	query := fmt.Sprintf("INSERT INTO users (name, unique_id, email, password, salt, role) VALUES (?, ?, ?, ?, ?, '%s');", role)
 	_, err := db.Exec(query, user.Name, user.UniqueID, user.Email, user.Password, user.Salt)
 	return err
 }
 
-func createElection(db *sql.DB, e Election) error {
+func createElection(db *sql.Tx, e Election) error {
 	query := `INSERT INTO elections (name, date_start, date_end, public, count_method, max_candidates, min_candidates) 
               VALUES (?, ?, ?, ?, ?, ?, ?);`
 	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountMethod, e.MaxCandidates, e.MinCandidates)
 	return err
 }
 
-func createConfig(db *sql.DB, c Config) error {
+func createConfig(db *sql.Tx, c Config) error {
 	return execConfig(db, c, `INSERT INTO config (id_formats) VALUES (?);`, "create")
 }
 
-func updateConfig(db *sql.DB, c Config) error {
+func updateConfig(db *sql.Tx, c Config) error {
 	return execConfig(db, c, `UPDATE config SET id_formats=? WHERE id=1;`, "update")
 }
 
-func execConfig(db *sql.DB, c Config, query, action string) error {
+func execConfig(db *sql.Tx, c Config, query, action string) error {
 	b, err := json.Marshal(c.IDFormats)
 	if err != nil {
 		return fmt.Errorf("could not marshal id formats: %w", err)
@@ -197,7 +197,7 @@ func execConfig(db *sql.DB, c Config, query, action string) error {
 	return nil
 }
 
-func getConfig(db *sql.DB) (c Config, err error) {
+func getConfig(db *sql.Tx) (c Config, err error) {
 	err = db.QueryRow("SELECT id_formats FROM config WHERE id=1;").Scan(&c.IDFormatsString)
 	if err != nil {
 		return c, fmt.Errorf("could not query row: %w", err)
@@ -208,14 +208,14 @@ func getConfig(db *sql.DB) (c Config, err error) {
 	return c, nil
 }
 
-func getUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {
+func getUserFromUniqueID(db *sql.Tx, uniqueID string) (user User, err error) {
 	err = db.QueryRow("SELECT id, name, email, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
 		&user.ID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)
 	user.UniqueID = uniqueID
 	return user, err
 }
 
-func getUserFilesAndMessages(db *sql.DB, id int) (files []UserFile, messages []UserMessage, err error) {
+func getUserFilesAndMessages(db *sql.Tx, id int) (files []UserFile, messages []UserMessage, err error) {
 	files, err = getUserFiles(db, id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not get files: %w", err)
@@ -229,7 +229,7 @@ func getUserFilesAndMessages(db *sql.DB, id int) (files []UserFile, messages []U
 	return files, messages, nil
 }
 
-func getUserFiles(db *sql.DB, id int) (files []UserFile, err error) {
+func getUserFiles(db *sql.Tx, id int) (files []UserFile, err error) {
 	fs, err := queryDB(db, scanUserFile, "SELECT id, name, description FROM files WHERE user_id = ?;", id)
 	if err != nil {
 		return nil, fmt.Errorf("could not select: %w", err)
@@ -240,23 +240,23 @@ func getUserFiles(db *sql.DB, id int) (files []UserFile, err error) {
 	return files, nil
 }
 
-func getFilename(db *sql.DB, id int) (name string, err error) {
+func getFilename(db *sql.Tx, id int) (name string, err error) {
 	err = db.QueryRow("SELECT name FROM files WHERE id=?;", id).Scan(&name)
 	return name, err
 }
 
-func deleteFile(db *sql.DB, fileID int) error {
+func deleteFile(db *sql.Tx, fileID int) error {
 	_, err := db.Exec("DELETE FROM files WHERE id=?;", fileID)
 	return err
 }
 
-func insertFile(db *sql.DB, file UserFile) error {
+func insertFile(db *sql.Tx, file UserFile) error {
 	_, err := db.Exec("INSERT INTO files (user_id, name, description) VALUES (?, ?, ?);",
 		file.UserID, file.Name, file.Description)
 	return err
 }
 
-func getUsers(db *sql.DB, where string) (users []User, err error) {
+func getUsers(db *sql.Tx, where string) (users []User, err error) {
 	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, files.id, files.description, messages.id, messages.content, messages.solved
 	FROM users LEFT JOIN files ON users.id=files.user_id 
 	LEFT JOIN messages ON users.id=messages.user_id
@@ -298,13 +298,13 @@ func getUsers(db *sql.DB, where string) (users []User, err error) {
 	return users, nil
 }
 
-func addMessage(db *sql.DB, m UserMessage) error {
+func addMessage(db *sql.Tx, m UserMessage) error {
 	query := "INSERT INTO messages (user_id, content, solved) VALUES (?, ?, 0);"
 	_, err := db.Exec(query, m.UserID, m.Content)
 	return err
 }
 
-func getUserMessages(db *sql.DB, id int) (messages []UserMessage, err error) {
+func getUserMessages(db *sql.Tx, id int) (messages []UserMessage, err error) {
 	ms, err := queryDB(db, scanUserMessage, "SELECT id, content, solved FROM messages WHERE user_id = ?;", id)
 	if err != nil {
 		return nil, fmt.Errorf("could not get messages: %w", err)
@@ -315,12 +315,12 @@ func getUserMessages(db *sql.DB, id int) (messages []UserMessage, err error) {
 	return messages, nil
 }
 
-func solveMessage(db *sql.DB, messageID int) error {
+func solveMessage(db *sql.Tx, messageID int) error {
 	_, err := db.Exec("UPDATE messages SET solved=1 WHERE id=?;", messageID)
 	return err
 }
 
-func validateUser(db *sql.DB, userID int) error {
+func validateUser(db *sql.Tx, userID int) error {
 	res, err := db.Exec("UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
 	if err != nil {
 		return fmt.Errorf("could not execute update: %w", err)
@@ -338,12 +338,12 @@ func validateUser(db *sql.DB, userID int) error {
 	return nil
 }
 
-func getCandidates(db *sql.DB, electionID int) ([]interface{}, error) {
+func getCandidates(db *sql.Tx, electionID int) ([]interface{}, error) {
 	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
-func getCandidate(db *sql.DB, candidateID int) (Candidate, error) {
+func getCandidate(db *sql.Tx, candidateID int) (Candidate, error) {
 	var c Candidate
 	err := db.QueryRow(`SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE id = ?;`, candidateID).Scan(
@@ -351,18 +351,18 @@ func getCandidate(db *sql.DB, candidateID int) (Candidate, error) {
 	return c, err
 }
 
-func addCandidate(db *sql.DB, c Candidate) error {
+func addCandidate(db *sql.Tx, c Candidate) error {
 	query := "INSERT INTO candidates (election_id, name, presentation, image) VALUES (1, ?, ?, ?);"
 	_, err := db.Exec(query, c.Name, c.Presentation, c.Image)
 	return err
 }
 
-func deleteCandidate(db *sql.DB, id int) error {
+func deleteCandidate(db *sql.Tx, id int) error {
 	_, err := db.Exec("DELETE FROM candidates WHERE id=?;", id)
 	return err
 }
 
-func getElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
+func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 	results, err := queryDB(db, scanElection, `
 		SELECT id, name, date_start, date_end, count_method, max_candidates, min_candidates, public 
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
@@ -408,7 +408,7 @@ func getElections(db *sql.DB, onlyPublic bool) ([]Election, error) {
 	return elections, nil
 }
 
-func publishElection(db *sql.DB, electionID int) error {
+func publishElection(db *sql.Tx, electionID int) error {
 	res, err := db.Exec("UPDATE elections SET public=TRUE WHERE id=?;", electionID)
 	if err != nil {
 		return fmt.Errorf("could not execute update: %w", err)
@@ -428,15 +428,15 @@ func publishElection(db *sql.DB, electionID int) error {
 
 // params check queries
 
-func checkFileOwnedByUser(db *sql.DB, fileID, userID int) error {
+func checkFileOwnedByUser(db *sql.Tx, fileID, userID int) error {
 	return resourceOwnedByUser(db, "files", fileID, userID)
 }
 
-func checkMessageOwnedByUser(db *sql.DB, fileID, userID int) error {
+func checkMessageOwnedByUser(db *sql.Tx, fileID, userID int) error {
 	return resourceOwnedByUser(db, "messages", fileID, userID)
 }
 
-func resourceOwnedByUser(db *sql.DB, resourceName string, resourceID, userID int) error {
+func resourceOwnedByUser(db *sql.Tx, resourceName string, resourceID, userID int) error {
 	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE id = ? AND user_id = ?;", resourceName)
 	n, err := countDB(db, query, resourceID, userID)
 	if err != nil {
@@ -450,7 +450,7 @@ func resourceOwnedByUser(db *sql.DB, resourceName string, resourceID, userID int
 
 // test checks queries
 
-func getAllUsers(db *sql.DB) (users []User, err error) {
+func getAllUsers(db *sql.Tx) (users []User, err error) {
 	query := "SELECT id, unique_id, name, email, role FROM users;"
 	res, err := queryDB(db, scanUser, query)
 	if err != nil {

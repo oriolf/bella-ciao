@@ -13,7 +13,7 @@ import (
 	"github.com/oriolf/bella-ciao/params"
 )
 
-func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func Uninitialized(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	if initialized := getInitialized(); initialized {
 		return errors.New("already initialized")
 	}
@@ -21,7 +21,7 @@ func Uninitialized(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	return nil // only returns OK if not initialized
 }
 
-func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func Initialize(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	initialized.mutex.Lock()
 	defer initialized.mutex.Unlock()
 
@@ -70,7 +70,7 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func UpdateConfig(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func UpdateConfig(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	c, err := getConfig(db)
 	if err != nil {
 		return fmt.Errorf("coult not get config: %w", err)
@@ -91,7 +91,7 @@ func UpdateConfig(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func Register(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	uniqueID, pass := p.String("unique_id"), p.String("password")
 	name, email := p.String("name"), p.String("email")
 	password, salt, err := GetSaltAndHashPassword(pass)
@@ -107,7 +107,7 @@ func Register(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return nil
 }
 
-func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func Login(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	user, err := getUserFromUniqueID(db, p.String("unique_id"))
 	if err != nil {
 		return fmt.Errorf("could not get user: %w", err)
@@ -134,7 +134,7 @@ func Login(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, 
 	return nil
 }
 
-func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func GetOwnFiles(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	files, err := getUserFiles(db, claims.User.ID)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func GetOwnFiles(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cl
 	return WriteResult(w, files)
 }
 
-func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func DeleteFile(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	id := p.Int("id")
 	filename, err := getFilename(db, id)
 	if err != nil {
@@ -161,7 +161,7 @@ func DeleteFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func DownloadFile(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	filename, err := getFilename(db, p.Int("id"))
 	if err != nil {
 		return fmt.Errorf("could not get file name: %w", err)
@@ -171,7 +171,7 @@ func DownloadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func UploadFile(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	content, filename := p.File("file")
 	f, filename, err := safeCreateFile(UPLOADS_FOLDER, filename)
 	if err != nil {
@@ -190,15 +190,15 @@ func UploadFile(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func GetUnvalidatedUsers(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	return GetUsers(w, db, token, claims, p, "users.role == 'none'")
 }
 
-func GetValidatedUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func GetValidatedUsers(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	return GetUsers(w, db, token, claims, p, "users.role != 'none'")
 }
 
-func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values, where string) error {
+func GetUsers(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values, where string) error {
 	users, err := getUsers(db, where)
 	if err != nil {
 		return fmt.Errorf("could not get users from db: %w", err)
@@ -207,7 +207,7 @@ func GetUsers(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claim
 	return WriteResult(w, users)
 }
 
-func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func AddMessage(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	userID, content := p.Int("user_id"), p.String("content")
 	if err := addMessage(db, UserMessage{UserID: userID, Content: content}); err != nil {
 		return fmt.Errorf("could not add message to db: %w", err)
@@ -216,7 +216,7 @@ func AddMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 	return nil
 }
 
-func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func GetOwnMessages(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	messages, err := getUserMessages(db, claims.User.ID)
 	if err != nil {
 		return err
@@ -225,7 +225,7 @@ func GetOwnMessages(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims 
 	return WriteResult(w, messages)
 }
 
-func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func SolveMessage(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	if err := solveMessage(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not solve message: %w", err)
 	}
@@ -233,7 +233,7 @@ func SolveMessage(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func ValidateUser(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	if err := validateUser(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not validate user: %w", err)
 	}
@@ -241,7 +241,7 @@ func ValidateUser(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params par.Values) error {
+func GetCandidates(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, params par.Values) error {
 	candidates, err := getCandidates(db, 1)
 	if err != nil {
 		return fmt.Errorf("could not get candidates: %w", err)
@@ -254,7 +254,7 @@ func GetCandidates(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *
 	return nil
 }
 
-func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func AddCandidate(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	image, filename := p.File("image")
 	f, filename, err := safeCreateFile(UPLOADS_FOLDER, filename)
 	if err != nil {
@@ -274,7 +274,7 @@ func AddCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func DeleteCandidate(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	id := p.Int("id")
 	c, err := getCandidate(db, id)
 	if err != nil {
@@ -292,7 +292,7 @@ func DeleteCandidate(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims
 	return nil
 }
 
-func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, params par.Values) error {
+func GetElections(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, params par.Values) error {
 	elections, err := getElections(db, !IsAdmin(claims)) // all non-admin get only public elections
 	if err != nil {
 		return fmt.Errorf("could not get elections: %w", err)
@@ -305,7 +305,7 @@ func GetElections(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *C
 	return nil
 }
 
-func PublishElection(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+func PublishElection(w http.ResponseWriter, db *sql.Tx, token *jwt.Token, claims *Claims, p par.Values) error {
 	if err := publishElection(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not delete candidate: %w", err)
 	}
