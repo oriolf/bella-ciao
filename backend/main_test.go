@@ -48,7 +48,6 @@ type expectedFile struct {
 }
 
 // TODO HTTP methods should have rational meaning
-// TODO test DNI and NIE code with several examples
 func TestAPI(t *testing.T) {
 	bootstrap()
 
@@ -604,4 +603,68 @@ func fileUploadBody(filename string, fileField string, params map[string]string)
 	}
 
 	return body, writer.FormDataContentType(), err
+}
+
+type testValidateID struct {
+	s             string
+	expectedError bool
+}
+
+func TestValidateDNI(t *testing.T) {
+	for i, test := range []testValidateID{
+		{s: "11111111H", expectedError: false},
+		{s: "22222222J", expectedError: false},
+		{s: "33333333P", expectedError: false},
+		{s: "44444444A", expectedError: false},
+		{s: "12345678Z", expectedError: false},
+
+		{s: "", expectedError: true},
+		{s: "11111111 H", expectedError: true},
+		{s: "11111111", expectedError: true},
+		{s: "22222222H", expectedError: true},
+		{s: "11111111h", expectedError: true},
+	} {
+		if err := validateDNI(test.s); err != nil && !test.expectedError {
+			t.Errorf("[%d] Expected no error but got %q.", i, err)
+		} else if err == nil && test.expectedError {
+			t.Errorf("[%d] Expected an error but got none.", i)
+		}
+	}
+}
+
+func TestValidateNIE(t *testing.T) {
+	for i, test := range []testValidateID{
+		{s: "X1111111G", expectedError: false},
+		{s: "Y2222222E", expectedError: false},
+
+		{s: "", expectedError: true},
+		{s: "X111111G", expectedError: true},
+		{s: "X 1111111 G", expectedError: true},
+		{s: "X1111111A", expectedError: true},
+	} {
+		if err := validateNIE(test.s); err != nil && !test.expectedError {
+			t.Errorf("[%d] Expected no error but got %q.", i, err)
+		} else if err == nil && test.expectedError {
+			t.Errorf("[%d] Expected an error but got none.", i)
+		}
+	}
+}
+
+func TestValidatePassport(t *testing.T) {
+	for i, test := range []testValidateID{
+		{s: "ABC123456A", expectedError: false},
+		{s: "XYZ111111B", expectedError: false},
+		{s: "XYZ111111C", expectedError: false},
+
+		{s: "", expectedError: true},
+		{s: "ABC 123456 A", expectedError: true},
+		{s: "ABC-123456-A", expectedError: true},
+		{s: "ABC12345B", expectedError: true},
+	} {
+		if err := validatePassport(test.s); err != nil && !test.expectedError {
+			t.Errorf("[%d] Expected no error but got %q.", i, err)
+		} else if err == nil && test.expectedError {
+			t.Errorf("[%d] Expected an error but got none.", i)
+		}
+	}
 }

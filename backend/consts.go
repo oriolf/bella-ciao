@@ -34,14 +34,11 @@ var (
 	ID_VALIDATION_FUNCS = map[string]func(string) error{
 		ID_DNI:      validateDNI,
 		ID_NIE:      validateNIE,
-		ID_PASSPORT: validatePASSPORT,
+		ID_PASSPORT: validatePassport,
 	}
-	ID_FORMATS []string
+	ID_FORMATS = []string{ID_DNI, ID_NIE, ID_PASSPORT}
 )
 
 func init() {
 	SQLITE_TIME_FORMAT = strings.Replace(time.RFC3339Nano, "T", " ", 1)
-	for k := range ID_VALIDATION_FUNCS {
-		ID_FORMATS = append(ID_FORMATS, k)
-	}
 }

@@ -293,10 +293,19 @@ func validateNIE(s string) error {
 // from https://es.stackoverflow.com/questions/67041/validar-pasaporte-y-dni-espa%C3%B1oles
 var passportRegex = regexp.MustCompile("^[A-Z]{3}[0-9]{6}[A-Z]$")
 
-func validatePASSPORT(s string) error {
+func validatePassport(s string) error {
 	if !passportRegex.MatchString(s) {
 		return errors.New("does not validate passport format")
 	}
 
 	return nil
+}
+
+func stringInSlice(s string, l []string) bool {
+	for _, x := range l {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }

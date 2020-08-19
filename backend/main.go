@@ -183,6 +183,8 @@ func handler(
 		}
 		defer db.Close()
 
+		// TODO wrap everything in a transaction, update the rest of the code accordingly
+
 		token, claims, err := getRequestToken(r)
 		if err := tokenFunc(db, claims, params, err); err != nil { // token func validates permissions too
 			log.Println("Error validating token:", err)
