@@ -73,6 +73,19 @@ func (m UserMessage) CreateTableQuery() string {
 	);`
 }
 
+type Config struct {
+	IDFormats []string
+
+	IDFormatsString string `json:"-"`
+}
+
+func (v Config) CreateTableQuery() string {
+	return `CREATE TABLE IF NOT EXISTS config (
+		id integer NOT NULL PRIMARY KEY,
+		id_formats json NOT NULL
+	);`
+}
+
 type Election struct {
 	ID     int       `json:"id"`
 	Name   string    `json:"name"`

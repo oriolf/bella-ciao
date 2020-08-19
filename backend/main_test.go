@@ -73,37 +73,46 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/auth/login", 401, to{method: "POST", params: login2}))
 
 	admin := newUser("admin", "admin@example.com", "21111111H", "12345678")
+	appConfig := m{"id_formats": []string{ID_DNI}}
 	electionStart, electionEnd := time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour)
 
 	// wrong admin unique id
 	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
 	t.Run("Empty site cannot be initialized with wrong parameters",
-		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// wrong election start and end
 	admin["unique_id"] = uniqueID1
 	election = newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 5)
 	t.Run("Empty site cannot be initialized with wrong parameters",
-		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// wrong election min and max candidates
 	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 5, 2)
 	t.Run("Empty site cannot be initialized with wrong parameters",
-		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election}}))
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
+	// wrong count method
+	election = newElection("election", "invalid_count", electionStart, electionEnd, 2, 5)
+	t.Run("Empty site cannot be initialized with wrong parameters",
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
+
+	// empty id formats list
 	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
+	t.Run("Empty site cannot be initialized with wrong parameters",
+		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": m{"id_formats": []string{}}}}))
+
 	t.Run("Empty site can be initialized",
-		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election}}))
+		testEndpoint("/initialize", 200, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	t.Run("Users should be able to register",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user2}))
 	t.Run("Users should be able to register",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: user3}))
 	t.Run("Registers with invalid parameters should be rejected",
-		testEndpoint("/auth/register", 400, to{method: "POST", params: m{"name": "asd@example.com"}}))
+		testEndpoint("/auth/register", 400, to{method: "POST", params: m{"email": "asd@example.com"}}))
 	t.Run("Registers with duplicated emails should be rejected",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
-	// Initialized site should not accept registers for non-accepted ID types
 
 	var token1, token2, token3 string
 	t.Run("Admin should be able to log in",
@@ -119,6 +128,18 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID2, role: ROLE_NONE},
 		{uniqueID: uniqueID3, role: ROLE_NONE},
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
+
+	// TODO when id formats are checked
+	//	userNIE := newUser("name", "asd3@example.com", "X1111111G", "12345678")
+	//	t.Run("Registers with invalid id format should be rejected",
+	//		testEndpoint("/auth/register", 500, to{method: "POST", params: userNIE}))
+
+	t.Run("Admin can update site config",
+		testEndpoint("/config/update", 200, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI, ID_NIE}}}))
+	t.Run("Admin cannot remove id formats from site config",
+		testEndpoint("/config/update", 500, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI}}}))
+
+	// TODO test userNIE can register now
 
 	// User files management
 

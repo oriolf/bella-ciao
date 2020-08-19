@@ -50,13 +50,18 @@ var (
 				Int("max_candidates", par.PositiveInt).
 				ValidateFunc(validateElectionParams)
 
+	globalConfigParamsAux = par.P("json").
+				StringList("id_formats", par.ListMinLength(1), par.StringsIn(ID_FORMATS))
+
 	initializeParams = par.P("json").
 				JSON("admin", registerParamsAux.EndJSON()).
-				JSON("election", electionParamsAux.EndJSON()).End()
+				JSON("election", electionParamsAux.EndJSON()).
+				JSON("config", globalConfigParamsAux.EndJSON()).End()
 
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, noToken, Uninitialized),
 		"/initialize":    handler(initializeParams, noToken, Initialize),
+		"/config/update": handler(globalConfigParamsAux.End(), tokenFuncs(requireToken, adminToken), UpdateConfig),
 
 		"/auth/register": handler(registerParams, noToken, Register),
 		"/auth/login":    handler(loginParams, noToken, Login),
@@ -79,11 +84,8 @@ var (
 
 		"/elections/get":     handler(noParams, noToken, GetElections),
 		"/elections/publish": handler(idParams, tokenFuncs(requireToken, adminToken), PublishElection),
-		// TODO store allowed identification types as part of the initialization
-		// TODO implement and test /config/update (for global options), /elections/update
-		// validate and test count method in COUNT_METHODS on initialize, /elections/update
-		// validate and test unique ID on register
-		// /config/update can only add allowed identification formats, not remove them
+		// TODO validate and test unique ID format on register
+		// TODO implement /elections/update, test only valid params are accepted
 		// TODO implement and test /elections/vote, etc.
 	}
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -28,6 +29,7 @@ func InitDB(db *sql.DB) error {
 		UserFile{},
 		UserMessage{},
 		Election{},
+		Config{},
 		Candidate{},
 		Vote{},
 	}
@@ -173,6 +175,37 @@ func createElection(db *sql.DB, e Election) error {
               VALUES (?, ?, ?, ?, ?, ?, ?);`
 	_, err := db.Exec(query, e.Name, e.Start, e.End, false, e.CountMethod, e.MaxCandidates, e.MinCandidates)
 	return err
+}
+
+func createConfig(db *sql.DB, c Config) error {
+	return execConfig(db, c, `INSERT INTO config (id_formats) VALUES (?);`, "create")
+}
+
+func updateConfig(db *sql.DB, c Config) error {
+	return execConfig(db, c, `UPDATE config SET id_formats=? WHERE id=1;`, "update")
+}
+
+func execConfig(db *sql.DB, c Config, query, action string) error {
+	b, err := json.Marshal(c.IDFormats)
+	if err != nil {
+		return fmt.Errorf("could not marshal id formats: %w", err)
+	}
+	_, err = db.Exec(query, string(b))
+	if err != nil {
+		return fmt.Errorf("could not %s config: %w", action, err)
+	}
+	return nil
+}
+
+func getConfig(db *sql.DB) (c Config, err error) {
+	err = db.QueryRow("SELECT id_formats FROM config WHERE id=1;").Scan(&c.IDFormatsString)
+	if err != nil {
+		return c, fmt.Errorf("could not query row: %w", err)
+	}
+	if err := json.Unmarshal([]byte(c.IDFormatsString), &c.IDFormats); err != nil {
+		return c, fmt.Errorf("could not unmarshal id formats: %w", err)
+	}
+	return c, nil
 }
 
 func getUserFromUniqueID(db *sql.DB, uniqueID string) (user User, err error) {

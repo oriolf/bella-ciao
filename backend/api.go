@@ -60,7 +60,33 @@ func Initialize(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Cla
 		return fmt.Errorf("could not create election: %w", err)
 	}
 
+	idFormats := p.Values("config").StringList("id_formats")
+	if err := createConfig(db, Config{IDFormats: idFormats}); err != nil {
+		return fmt.Errorf("could not create config: %w", err)
+	}
+
 	initialized.value = true
+
+	return nil
+}
+
+func UpdateConfig(w http.ResponseWriter, db *sql.DB, token *jwt.Token, claims *Claims, p par.Values) error {
+	c, err := getConfig(db)
+	if err != nil {
+		return fmt.Errorf("coult not get config: %w", err)
+	}
+
+	newIDFormats := p.StringList("id_formats")
+	for _, x := range c.IDFormats {
+		if !stringInSlice(x, newIDFormats) { // cannot remove id formats, or else registered users could be invalid
+			return fmt.Errorf("cannot remove id format %q", x)
+		}
+	}
+
+	c.IDFormats = newIDFormats
+	if err := updateConfig(db, c); err != nil {
+		return fmt.Errorf("could not update config: %w", err)
+	}
 
 	return nil
 }

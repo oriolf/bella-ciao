@@ -54,6 +54,10 @@ func (p params) String(name string, validators ...func(interface{}) (interface{}
 	return p.newParam("string", name, validators...)
 }
 
+func (p params) StringList(name string, validators ...func(interface{}) (interface{}, error)) params {
+	return p.newParam("string_list", name, validators...)
+}
+
 func (p params) File(name string) params {
 	return p.newParam("file", name)
 }
@@ -166,6 +170,30 @@ func (p params) endJsonParamsAux(m map[string]interface{}) (Values, error) {
 				return nil, errWrongType
 			}
 			res, err := checkValidators(vv, name, p.validators)
+			if err != nil {
+				return nil, err
+			}
+			vals[name] = res
+
+		case "string_list":
+			v, ok := m[name]
+			if !ok {
+				return nil, errMissingParameter
+			}
+			l, ok := v.([]interface{})
+			if !ok {
+				return nil, errWrongType
+			}
+			var sl []string
+			for _, x := range l {
+				y, ok := x.(string)
+				if !ok {
+					return nil, errWrongType
+				}
+				sl = append(sl, y)
+			}
+
+			res, err := checkValidators(sl, name, p.validators)
 			if err != nil {
 				return nil, err
 			}
@@ -332,6 +360,20 @@ func (v Values) String(name string) string {
 	return s
 }
 
+func (v Values) StringList(name string) []string {
+	x, ok := v[name]
+	if !ok {
+		panic(fmt.Sprintf("asked for unknown name %q", name))
+	}
+
+	l, ok := x.([]string)
+	if !ok {
+		panic(fmt.Sprintf("asked for wrong type, expected string, got %T", x))
+	}
+
+	return l
+}
+
 func (v Values) Time(name string) time.Time {
 	x, ok := v[name]
 	if !ok {
@@ -416,6 +458,21 @@ func MinLength(length int) func(interface{}) (interface{}, error) {
 	}
 }
 
+func ListMinLength(length int) func(interface{}) (interface{}, error) {
+	return func(i interface{}) (interface{}, error) {
+		v, ok := i.([]string)
+		if !ok {
+			return i, errWrongType
+		}
+
+		if len(v) < length {
+			return i, fmt.Errorf("list length is less than %d", length)
+		}
+
+		return v, nil
+	}
+}
+
 func UpperCase(i interface{}) (interface{}, error) {
 	v, ok := i.(string)
 	if !ok {
@@ -448,7 +505,24 @@ func StringIn(l []string) func(interface{}) (interface{}, error) {
 		}
 
 		if !stringInSlice(v, l) {
-			return i, fmt.Errorf("value %s not in allowed values list", v)
+			return i, fmt.Errorf("value %s not in allowed values list %v", v, l)
+		}
+
+		return v, nil
+	}
+}
+
+func StringsIn(l []string) func(interface{}) (interface{}, error) {
+	return func(i interface{}) (interface{}, error) {
+		v, ok := i.([]string)
+		if !ok {
+			return i, errWrongType
+		}
+
+		for _, x := range v {
+			if !stringInSlice(x, l) {
+				return i, fmt.Errorf("value %s not in allowed values list %v", x, l)
+			}
 		}
 
 		return v, nil
