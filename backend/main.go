@@ -67,7 +67,7 @@ var (
 		"/initialize":    handler(initializeParams, noToken, Initialize),
 		"/config/update": handler(globalConfigParamsAux.End(), tokenFuncs(requireToken, adminToken), UpdateConfig),
 
-		"/auth/register": handler(registerParams, noToken, Register),
+		"/auth/register": handler(registerParams, tokenFuncs(noToken, validIDFormats), Register),
 		"/auth/login":    handler(loginParams, noToken, Login),
 
 		"/users/files/own":      handler(noParams, requireToken, GetOwnFiles),
@@ -88,7 +88,6 @@ var (
 
 		"/elections/get":     handler(noParams, noToken, GetElections),
 		"/elections/publish": handler(idParams, tokenFuncs(requireToken, adminToken), PublishElection),
-		// TODO validate and test unique ID format on register
 		// TODO implement /elections/update, test only valid params are accepted
 		// TODO implement and test /elections/vote, etc.
 	}

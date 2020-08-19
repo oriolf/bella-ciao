@@ -53,7 +53,7 @@ func TestAPI(t *testing.T) {
 
 	type to = testOptions
 	type m = map[string]interface{}
-	uniqueID1, uniqueID2, uniqueID3, uniqueID4 := "11111111H", "22222222J", "33333333P", "44444444A"
+	uniqueID1, uniqueID2, uniqueID3, uniqueID4, uniqueID5 := "11111111H", "22222222J", "33333333P", "44444444A", "X1111111G"
 	user2 := newUser("name", "name@example.com", uniqueID2, "12345678")
 	user3 := newUser("name", "name2@example.com", uniqueID3, "12345678")
 	user4 := newUser("name", "name@example.com", uniqueID4, "12345678")
@@ -129,17 +129,17 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID3, role: ROLE_NONE},
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
-	// TODO when id formats are checked
-	//	userNIE := newUser("name", "asd3@example.com", "X1111111G", "12345678")
-	//	t.Run("Registers with invalid id format should be rejected",
-	//		testEndpoint("/auth/register", 500, to{method: "POST", params: userNIE}))
+	userNIE := newUser("name", "asd3@example.com", uniqueID5, "12345678")
+	t.Run("Registers with invalid id format should be rejected",
+		testEndpoint("/auth/register", 401, to{method: "POST", params: userNIE}))
 
 	t.Run("Admin can update site config",
 		testEndpoint("/config/update", 200, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI, ID_NIE}}}))
 	t.Run("Admin cannot remove id formats from site config",
 		testEndpoint("/config/update", 500, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI}}}))
 
-	// TODO test userNIE can register now
+	t.Run("Registers with previously invalid id format should work",
+		testEndpoint("/auth/register", 200, to{method: "POST", params: userNIE}))
 
 	// User files management
 
@@ -207,7 +207,7 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/unvalidated/get", 401, to{token: token2}))
 	t.Run("Admin user should get list of unvalidated users",
 		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}}}))
+			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}, {uniqueID: uniqueID5}}}))
 
 	t.Run("Non-logged user should not be able to add messages",
 		testEndpoint("/users/messages/add", 401, to{params: m{"user_id": 2, "content": "message content"}}))
@@ -223,7 +223,8 @@ func TestAPI(t *testing.T) {
 	t.Run("List of unvalidated users should contain messages",
 		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2", "message content user 2"}},
-			{uniqueID: uniqueID3, unsolvedMessages: []string{"message content user 3"}}}}))
+			{uniqueID: uniqueID3, unsolvedMessages: []string{"message content user 3"}},
+			{uniqueID: uniqueID5, unsolvedMessages: []string{}}}}))
 
 	t.Run("Non-logged user should not be able to get messages",
 		testEndpoint("/users/messages/own", 401, to{}))
@@ -268,6 +269,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID3, role: ROLE_NONE},
 		{uniqueID: uniqueID2, role: ROLE_VALIDATED},
+		{uniqueID: uniqueID5, role: ROLE_NONE},
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
 	t.Run("There should be two validated users",

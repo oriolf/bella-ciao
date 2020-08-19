@@ -85,6 +85,27 @@ func messageOwnerOrAdminToken(db *sql.Tx, claims *Claims, values par.Values, err
 	return nil
 }
 
+func validIDFormats(db *sql.Tx, claims *Claims, values par.Values, err error) error {
+	uniqueID := values.String("unique_id")
+	config, err := getConfig(db)
+	if err != nil {
+		return fmt.Errorf("could not get config: %w", err)
+	}
+
+	for _, idFormat := range config.IDFormats {
+		f, ok := ID_VALIDATION_FUNCS[idFormat]
+		if !ok {
+			continue
+		}
+
+		if err := f(uniqueID); err == nil {
+			return nil
+		}
+	}
+
+	return errors.New("unique_id did not validate any format")
+}
+
 func IsAdmin(claims *Claims) bool {
 	return claims != nil && claims.User.Role == "admin"
 }
