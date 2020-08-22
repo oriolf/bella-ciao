@@ -17,7 +17,7 @@ nav.navbar {
     <ul class="navbar-nav mr-auto">
       <li class="{segment === 'faq' ? 'nav-item active' : 'nav-item'}">
         <a class="nav-link" aria-current={segment === 'faq' ? 'page' : undefined} href="faq">
-		  faq
+		  FAQ
 		  {#if segment === 'faq'}
 		  <span class="sr-only">(current)</span>
 		  {/if}

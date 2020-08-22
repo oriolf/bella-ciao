@@ -118,6 +118,7 @@ func Login(r *http.Request, w http.ResponseWriter, db *sql.Tx, u *User, p par.Va
 
 	session, err := store.Get(r, "bella-ciao")
 	if err != nil {
+		session.Save(r, w) // overwrite old inexistent session so the error does not repeat
 		return fmt.Errorf("could not get session: %w", err)
 	}
 
@@ -128,6 +129,10 @@ func Login(r *http.Request, w http.ResponseWriter, db *sql.Tx, u *User, p par.Va
 	}
 
 	return nil
+}
+
+func GetSelf(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
+	return WriteResult(w, user)
 }
 
 func GetOwnFiles(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {

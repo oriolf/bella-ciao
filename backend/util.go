@@ -24,9 +24,10 @@ var (
 	fileUploadMutex sync.Mutex
 )
 
-func getRequestUser(r *http.Request, tx *sql.Tx) (*User, error) {
+func getRequestUser(r *http.Request, w http.ResponseWriter, tx *sql.Tx) (*User, error) {
 	session, err := store.Get(r, "bella-ciao")
 	if err != nil {
+		session.Save(r, w) // replace old inexistent session so error does not repeat
 		return nil, fmt.Errorf("could not get session: %w", err)
 	}
 

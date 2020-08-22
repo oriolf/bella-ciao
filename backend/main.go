@@ -72,6 +72,7 @@ var (
 		"/auth/register": handler(registerParams, tokenFuncs(noLogin, validIDFormats), Register),
 		"/auth/login":    handler(loginParams, noLogin, Login),
 
+		"/users/whoami":         handler(noParams, requireLogin, GetSelf), // TODO test
 		"/users/files/own":      handler(noParams, requireLogin, GetOwnFiles),
 		"/users/files/delete":   handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DeleteFile),
 		"/users/files/download": handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
@@ -215,7 +216,7 @@ func handler(
 			return
 		}
 
-		user, err := getRequestUser(r, tx)
+		user, err := getRequestUser(r, w, tx)
 		if err := tokenFunc(tx, user, params, err); err != nil { // token func validates permissions too
 			log.Printf("[%d] Error validating token: %s\n", n, err)
 			rollback(n, tx)

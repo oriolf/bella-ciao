@@ -20,6 +20,7 @@ import (
 type testOptions struct {
 	method     string
 	params     interface{}
+	postParams map[string]string
 	query      string
 	cookies    []*http.Cookie
 	resCookies *[]*http.Cookie
@@ -53,6 +54,7 @@ func TestAPI(t *testing.T) {
 
 	type to = testOptions
 	type m = map[string]interface{}
+	type ms = map[string]string
 	uniqueID1, uniqueID2, uniqueID3, uniqueID4, uniqueID5 := "11111111H", "22222222J", "33333333P", "44444444A", "X1111111G"
 	user2 := newUser("name", "name@example.com", uniqueID2, "12345678")
 	user3 := newUser("name", "name2@example.com", uniqueID3, "12345678")
@@ -122,7 +124,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Another user should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resCookies: &cookies3}))
 	t.Run("Log in with invalid parameters should be rejected",
-		testEndpoint("/auth/login", 400, to{method: "POST", params: m{"unique_id": uniqueID1}}))
+		testEndpoint("/auth/login", 400, to{method: "POST", params: ms{"unique_id": uniqueID1}}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID2, role: ROLE_NONE},
@@ -376,6 +378,19 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			}
 			body = bytes.NewReader(b)
 			contentType = "application/json"
+		} else if options.postParams != nil {
+			b := &bytes.Buffer{}
+			writer := multipart.NewWriter(b)
+			for key, val := range options.postParams {
+				if err = writer.WriteField(key, val); err != nil {
+					t.Fatalf("[%d] Could not write form field for endpoint %q. Error: %s", i, path, err)
+				}
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatalf("[%d] Could not close writer for endpoint %q. Error: %s", i, path, err)
+			}
+			body = b
+			contentType = writer.FormDataContentType()
 		} else if options.file.name != "" {
 			body, contentType, err = fileUploadBody(options.file.name, "file", map[string]string{"description": options.file.description})
 			if err != nil {
