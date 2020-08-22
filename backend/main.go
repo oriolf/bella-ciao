@@ -151,6 +151,8 @@ func bootstrap() error {
 		http.HandleFunc(path, handler)
 	}
 
+	http.Handle("/", http.FileServer(http.Dir("website")))
+
 	return nil
 }
 
