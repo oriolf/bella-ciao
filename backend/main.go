@@ -71,6 +71,7 @@ var (
 
 		"/auth/register": handler(registerParams, tokenFuncs(noLogin, validIDFormats), Register),
 		"/auth/login":    handler(loginParams, noLogin, Login),
+		"/auth/logout":   handler(noParams, noLogin, Logout), // TODO test
 
 		"/users/whoami":         handler(noParams, requireLogin, GetSelf), // TODO test
 		"/users/files/own":      handler(noParams, requireLogin, GetOwnFiles),

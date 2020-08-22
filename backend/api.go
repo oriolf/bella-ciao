@@ -131,6 +131,19 @@ func Login(r *http.Request, w http.ResponseWriter, db *sql.Tx, u *User, p par.Va
 	return nil
 }
 
+func Logout(r *http.Request, w http.ResponseWriter, db *sql.Tx, u *User, p par.Values) error {
+	session, err := store.Get(r, "bella-ciao")
+	if err != nil {
+		session.Save(r, w)
+		return nil
+	}
+
+	delete(session.Values, "user_id")
+	session.Save(r, w)
+
+	return nil
+}
+
 func GetSelf(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
 	return WriteResult(w, user)
 }

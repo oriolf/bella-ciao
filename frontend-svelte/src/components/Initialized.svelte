@@ -1,6 +1,9 @@
 <script>
   import Error from "../routes/_error.svelte";
   import LoginForm from "./LoginForm.svelte";
+  import RoleNone from "./RoleNone.svelte";
+  import RoleValidated from "./RoleValidated.svelte";
+  import RoleAdmin from "./RoleAdmin.svelte";
 
   async function whoami() {
     let res = await fetch("/users/whoami");
@@ -9,9 +12,9 @@
     }
     return res.json();
   }
-  let promise = whoami();
+  let promise = whoami(); // TODO should be called in onMount
   function getUser() {
-      promise = whoami();
+    promise = whoami();
   }
 </script>
 
@@ -22,7 +25,15 @@
 {#await promise}
   <p>...waiting</p>
 {:then user}
-  <p>Im am {user.role}</p>
+  {#if user.role === 'none'}
+    <RoleNone />
+  {:else if user.role === 'validated'}
+    <RoleValidated />
+  {:else if user.role === 'admin'}
+    <RoleAdmin />
+  {:else}
+    <p>Unknown user role {user.role}</p>
+  {/if}
 {:catch _}
-  <LoginForm on:loggedin="{getUser}"/>
+  <LoginForm on:loggedin={getUser} />
 {/await}
