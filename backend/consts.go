@@ -24,8 +24,9 @@ const (
 
 	MIN_PASSWORD_LENGTH = 8
 
-	UPLOADS_FOLDER = "uploads"
-	DB_FILE        = "db.db"
+	UPLOADS_FOLDER  = "uploads"
+	SESSIONS_FOLDER = "sessions"
+	DB_FILE         = "db.db"
 )
 
 var (

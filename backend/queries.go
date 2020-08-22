@@ -208,6 +208,13 @@ func getConfig(db *sql.Tx) (c Config, err error) {
 	return c, nil
 }
 
+func getUser(db *sql.Tx, userID int) (user User, err error) {
+	err = db.QueryRow("SELECT unique_id, name, email, password, salt, role FROM users WHERE id=?;", userID).Scan(
+		&user.UniqueID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)
+	user.ID = userID
+	return user, err
+}
+
 func getUserFromUniqueID(db *sql.Tx, uniqueID string) (user User, err error) {
 	err = db.QueryRow("SELECT id, name, email, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
 		&user.ID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)

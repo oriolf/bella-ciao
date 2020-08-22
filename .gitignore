@@ -1,4 +1,5 @@
 backend/db.db
 backend/cover.out
 backend/uploads
+backend/sessions
 test/testcopy

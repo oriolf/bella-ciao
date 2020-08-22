@@ -38,6 +38,7 @@ go_time() {
     cd ../backend
     rm -f db.db cover.out
     rm -rf uploads
+    rm -rf sessions
     if [[ "$1" == "silent" ]]; then
         output="$( (time -p go test -coverprofile cover.out) 2>&1 )"
     else

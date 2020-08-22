@@ -11,11 +11,13 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/sessions"
 	"github.com/oriolf/bella-ciao/params"
 )
 
 var (
+	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
+	store      = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
 	queryCount uint64
 
 	idParams = par.P("query").Int("id", par.PositiveInt).End()
@@ -63,31 +65,31 @@ var (
 				JSON("config", globalConfigParamsAux.EndJSON()).End()
 
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
-		"/uninitialized": handler(noParams, noToken, Uninitialized),
-		"/initialize":    handler(initializeParams, noToken, Initialize),
-		"/config/update": handler(globalConfigParamsAux.End(), tokenFuncs(requireToken, adminToken), UpdateConfig),
+		"/uninitialized": handler(noParams, noLogin, Uninitialized),
+		"/initialize":    handler(initializeParams, noLogin, Initialize),
+		"/config/update": handler(globalConfigParamsAux.End(), tokenFuncs(requireLogin, adminUser), UpdateConfig),
 
-		"/auth/register": handler(registerParams, tokenFuncs(noToken, validIDFormats), Register),
-		"/auth/login":    handler(loginParams, noToken, Login),
+		"/auth/register": handler(registerParams, tokenFuncs(noLogin, validIDFormats), Register),
+		"/auth/login":    handler(loginParams, noLogin, Login),
 
-		"/users/files/own":      handler(noParams, requireToken, GetOwnFiles),
-		"/users/files/delete":   handler(idParams, tokenFuncs(requireToken, fileOwnerOrAdminToken), DeleteFile),
-		"/users/files/download": handler(idParams, tokenFuncs(requireToken, fileOwnerOrAdminToken), DownloadFile),
-		"/users/files/upload":   handler(uploadFileParams, requireToken, UploadFile),
+		"/users/files/own":      handler(noParams, requireLogin, GetOwnFiles),
+		"/users/files/delete":   handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DeleteFile),
+		"/users/files/download": handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
+		"/users/files/upload":   handler(uploadFileParams, requireLogin, UploadFile),
 
-		"/users/unvalidated/get": handler(noParams, tokenFuncs(requireToken, adminToken), GetUnvalidatedUsers),
-		"/users/validated/get":   handler(noParams, tokenFuncs(requireToken, adminToken), GetValidatedUsers),
-		"/users/messages/add":    handler(addMessageParams, tokenFuncs(requireToken, adminToken), AddMessage),
-		"/users/messages/own":    handler(noParams, requireToken, GetOwnMessages),
-		"/users/messages/solve":  handler(idParams, tokenFuncs(requireToken, messageOwnerOrAdminToken), SolveMessage),
-		"/users/validate":        handler(idParams, tokenFuncs(requireToken, adminToken), ValidateUser),
+		"/users/unvalidated/get": handler(noParams, tokenFuncs(requireLogin, adminUser), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(noParams, tokenFuncs(requireLogin, adminUser), GetValidatedUsers),
+		"/users/messages/add":    handler(addMessageParams, tokenFuncs(requireLogin, adminUser), AddMessage),
+		"/users/messages/own":    handler(noParams, requireLogin, GetOwnMessages),
+		"/users/messages/solve":  handler(idParams, tokenFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
+		"/users/validate":        handler(idParams, tokenFuncs(requireLogin, adminUser), ValidateUser),
 
-		"/candidates/get":    handler(noParams, noToken, GetCandidates),
-		"/candidates/add":    handler(addCandidateParams, tokenFuncs(requireToken, adminToken), AddCandidate),
-		"/candidates/delete": handler(idParams, tokenFuncs(requireToken, adminToken), DeleteCandidate),
+		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
+		"/candidates/add":    handler(addCandidateParams, tokenFuncs(requireLogin, adminUser), AddCandidate),
+		"/candidates/delete": handler(idParams, tokenFuncs(requireLogin, adminUser), DeleteCandidate),
 
-		"/elections/get":     handler(noParams, noToken, GetElections),
-		"/elections/publish": handler(idParams, tokenFuncs(requireToken, adminToken), PublishElection),
+		"/elections/get":     handler(noParams, noLogin, GetElections),
+		"/elections/publish": handler(idParams, tokenFuncs(requireLogin, adminUser), PublishElection),
 		// TODO implement /elections/update, test only valid params are accepted
 		// TODO implement and test /elections/vote, etc.
 	}
@@ -137,9 +139,11 @@ func bootstrap() error {
 		initialized.value = true
 	}
 
-	if _, err := os.Stat(UPLOADS_FOLDER); err != nil {
-		if err := os.Mkdir(UPLOADS_FOLDER, 0755); err != nil {
-			return fmt.Errorf("could not create uploads folder: %w", err)
+	for _, folder := range []string{UPLOADS_FOLDER, SESSIONS_FOLDER} {
+		if _, err := os.Stat(folder); err != nil {
+			if err := os.Mkdir(folder, 0755); err != nil {
+				return fmt.Errorf("could not create %s folder: %w", folder, err)
+			}
 		}
 	}
 
@@ -161,8 +165,8 @@ func getInitialized() bool {
 
 func handler(
 	paramsFunc func(*http.Request) (par.Values, error),
-	tokenFunc func(*sql.Tx, *Claims, par.Values, error) error,
-	handleFunc func(http.ResponseWriter, *sql.Tx, *jwt.Token, *Claims, par.Values) error,
+	tokenFunc func(*sql.Tx, *User, par.Values, error) error,
+	handleFunc func(*http.Request, http.ResponseWriter, *sql.Tx, *User, par.Values) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddUint64(&queryCount, 1)
@@ -209,15 +213,15 @@ func handler(
 			return
 		}
 
-		token, claims, err := getRequestToken(r)
-		if err := tokenFunc(tx, claims, params, err); err != nil { // token func validates permissions too
+		user, err := getRequestUser(r, tx)
+		if err := tokenFunc(tx, user, params, err); err != nil { // token func validates permissions too
 			log.Printf("[%d] Error validating token: %s\n", n, err)
 			rollback(n, tx)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
 		}
 
-		if err := handleFunc(w, tx, token, claims, params); err != nil {
+		if err := handleFunc(r, w, tx, user, params); err != nil {
 			log.Printf("[%d] Error handling request: %s\n", n, err)
 			rollback(n, tx)
 			http.Error(w, "", http.StatusInternalServerError)
@@ -238,10 +242,10 @@ func rollback(n uint64, tx *sql.Tx) {
 	}
 }
 
-func tokenFuncs(fs ...func(*sql.Tx, *Claims, par.Values, error) error) func(*sql.Tx, *Claims, par.Values, error) error {
-	return func(db *sql.Tx, claims *Claims, values par.Values, err error) error {
+func tokenFuncs(fs ...func(*sql.Tx, *User, par.Values, error) error) func(*sql.Tx, *User, par.Values, error) error {
+	return func(db *sql.Tx, user *User, values par.Values, err error) error {
 		for _, f := range fs {
-			err = f(db, claims, values, err)
+			err = f(db, user, values, err)
 			if err != nil {
 				return err
 			}

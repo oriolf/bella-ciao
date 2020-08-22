@@ -15,59 +15,58 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/oriolf/bella-ciao/params"
 	"golang.org/x/crypto/scrypt"
 )
 
 var (
-	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
-	JWTKey          = []byte("my_secret_key")
 	fileUploadMutex sync.Mutex
 )
 
-func getRequestToken(r *http.Request) (token *jwt.Token, claims *Claims, err error) {
-	auth := r.Header.Get("Authorization")
-	parts := strings.Split(auth, " ")
-	if len(parts) < 2 {
-		return token, claims, errors.New("no token provided")
-	}
-
-	claims = &Claims{} // required, nil claims is no use
-	token, err = jwt.ParseWithClaims(parts[1], claims, func(token *jwt.Token) (interface{}, error) {
-		return JWTKey, nil
-	})
+func getRequestUser(r *http.Request, tx *sql.Tx) (*User, error) {
+	session, err := store.Get(r, "bella-ciao")
 	if err != nil {
-		return token, claims, fmt.Errorf("error parsing token: %w", err)
-	}
-	if !token.Valid {
-		return token, claims, errors.New("invalid token")
+		return nil, fmt.Errorf("could not get session: %w", err)
 	}
 
-	return token, claims, nil
+	id, ok := session.Values["user_id"]
+	if !ok {
+		return nil, errors.New("did not find user_id key")
+	}
+
+	userID, ok := id.(int)
+	if !ok {
+		return nil, errors.New("wrong type for user_id")
+	}
+
+	user, err := getUser(tx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("could not get user: %w", err)
+	}
+
+	return &user, err
 }
 
-func noToken(db *sql.Tx, claims *Claims, values par.Values, err error) error {
+func noLogin(db *sql.Tx, user *User, values par.Values, err error) error {
 	return nil
 }
 
-func requireToken(db *sql.Tx, claims *Claims, values par.Values, err error) error {
+func requireLogin(db *sql.Tx, user *User, values par.Values, err error) error {
 	return err
 }
 
-func adminToken(db *sql.Tx, claims *Claims, values par.Values, err error) error {
-	if claims.Role != ROLE_ADMIN {
+func adminUser(db *sql.Tx, user *User, values par.Values, err error) error {
+	if user.Role != ROLE_ADMIN {
 		return errors.New("non admin role")
 	}
 
 	return nil
 }
 
-func fileOwnerOrAdminToken(db *sql.Tx, claims *Claims, values par.Values, err error) error {
-	if claims.Role != ROLE_ADMIN {
-		if err := checkFileOwnedByUser(db, values.Int("id"), claims.User.ID); err != nil {
+func fileOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err error) error {
+	if user.Role != ROLE_ADMIN {
+		if err := checkFileOwnedByUser(db, values.Int("id"), user.ID); err != nil {
 			return fmt.Errorf("not admin and file not owned: %w", err)
 		}
 	}
@@ -75,9 +74,9 @@ func fileOwnerOrAdminToken(db *sql.Tx, claims *Claims, values par.Values, err er
 	return nil
 }
 
-func messageOwnerOrAdminToken(db *sql.Tx, claims *Claims, values par.Values, err error) error {
-	if claims.Role != ROLE_ADMIN {
-		if err := checkMessageOwnedByUser(db, values.Int("id"), claims.User.ID); err != nil {
+func messageOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err error) error {
+	if user.Role != ROLE_ADMIN {
+		if err := checkMessageOwnedByUser(db, values.Int("id"), user.ID); err != nil {
 			return fmt.Errorf("not admin and message not owned: %w", err)
 		}
 	}
@@ -85,7 +84,7 @@ func messageOwnerOrAdminToken(db *sql.Tx, claims *Claims, values par.Values, err
 	return nil
 }
 
-func validIDFormats(db *sql.Tx, claims *Claims, values par.Values, err error) error {
+func validIDFormats(db *sql.Tx, user *User, values par.Values, err error) error {
 	uniqueID := values.String("unique_id")
 	config, err := getConfig(db)
 	if err != nil {
@@ -106,8 +105,8 @@ func validIDFormats(db *sql.Tx, claims *Claims, values par.Values, err error) er
 	return errors.New("unique_id did not validate any format")
 }
 
-func IsAdmin(claims *Claims) bool {
-	return claims != nil && claims.User.Role == "admin"
+func IsAdmin(user *User) bool {
+	return user != nil && user.Role == "admin"
 }
 
 func GetSaltAndHashPassword(pass string) (string, string, error) {
@@ -174,17 +173,6 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 	}
 
 	return nil
-}
-
-func GenerateToken(user User) (string, error) {
-	expirationTime := time.Now().Add(5 * time.Minute)
-	claims := &Claims{
-		User:           user,
-		StandardClaims: jwt.StandardClaims{ExpiresAt: expirationTime.Unix()},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
-	return token.SignedString(JWTKey)
 }
 
 func validateElectionParams(v par.Values) error {

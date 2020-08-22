@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -12,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,12 +18,12 @@ import (
 )
 
 type testOptions struct {
-	method    string
-	params    interface{}
-	query     string
-	token     string
-	resToken  *string
-	candidate Candidate
+	method     string
+	params     interface{}
+	query      string
+	cookies    []*http.Cookie
+	resCookies *[]*http.Cookie
+	candidate  Candidate
 
 	file                     expectedFile
 	fileContent              string
@@ -116,13 +114,13 @@ func TestAPI(t *testing.T) {
 	t.Run("Registers with duplicated emails should be rejected",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
 
-	var token1, token2, token3 string
+	var cookies1, cookies2, cookies3 []*http.Cookie
 	t.Run("Admin should be able to log in",
-		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resToken: &token1}))
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resCookies: &cookies1}))
 	t.Run("User should be able to log in",
-		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resToken: &token2}))
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resCookies: &cookies2}))
 	t.Run("Another user should be able to log in",
-		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resToken: &token3}))
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resCookies: &cookies3}))
 	t.Run("Log in with invalid parameters should be rejected",
 		testEndpoint("/auth/login", 400, to{method: "POST", params: m{"unique_id": uniqueID1}}))
 
@@ -136,9 +134,9 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/auth/register", 401, to{method: "POST", params: userNIE}))
 
 	t.Run("Admin can update site config",
-		testEndpoint("/config/update", 200, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI, ID_NIE}}}))
+		testEndpoint("/config/update", 200, to{method: "POST", cookies: cookies1, params: m{"id_formats": []string{ID_DNI, ID_NIE}}}))
 	t.Run("Admin cannot remove id formats from site config",
-		testEndpoint("/config/update", 500, to{method: "POST", token: token1, params: m{"id_formats": []string{ID_DNI}}}))
+		testEndpoint("/config/update", 500, to{method: "POST", cookies: cookies1, params: m{"id_formats": []string{ID_DNI}}}))
 
 	t.Run("Registers with previously invalid id format should work",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: userNIE}))
@@ -155,50 +153,50 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/files/download", 401, to{query: "?id=1"}))
 
 	t.Run("User should not have any files at first",
-		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{}}))
+		testEndpoint("/users/files/own", 200, to{cookies: cookies2, expectedFiles: []expectedFile{}}))
 
 	t.Run("User should be able to upload files",
-		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+		testEndpoint("/users/files/upload", 200, to{cookies: cookies2, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("User should be able to upload files and get them renamed",
-		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+		testEndpoint("/users/files/upload", 200, to{cookies: cookies2, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("User should be able to upload files and get them renamed",
-		testEndpoint("/users/files/upload", 200, to{token: token2, file: expectedFile{description: "file", name: "testfile.txt"}}))
+		testEndpoint("/users/files/upload", 200, to{cookies: cookies2, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("Another user should be able to upload files",
-		testEndpoint("/users/files/upload", 200, to{token: token3, file: expectedFile{description: "file", name: "testfile.txt"}}))
+		testEndpoint("/users/files/upload", 200, to{cookies: cookies3, file: expectedFile{description: "file", name: "testfile.txt"}}))
 	t.Run("User should not be able to upload files without description",
-		testEndpoint("/users/files/upload", 400, to{token: token2, file: expectedFile{description: "", name: "testfile.txt"}}))
+		testEndpoint("/users/files/upload", 400, to{cookies: cookies2, file: expectedFile{description: "", name: "testfile.txt"}}))
 
 	t.Run("User should be able to get its files",
-		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
+		testEndpoint("/users/files/own", 200, to{cookies: cookies2, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_1.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
 	t.Run("User uploaded files should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_1.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to delete its files",
-		testEndpoint("/users/files/delete", 200, to{token: token2, query: "?id=2"}))
+		testEndpoint("/users/files/delete", 200, to{cookies: cookies2, query: "?id=2"}))
 	t.Run("User should not be able to delete files with invalid parameters",
-		testEndpoint("/users/files/delete", 400, to{token: token2, query: "?id=-1"}))
+		testEndpoint("/users/files/delete", 400, to{cookies: cookies2, query: "?id=-1"}))
 
 	t.Run("User deleted file should have disappeared",
-		testEndpoint("/users/files/own", 200, to{token: token2, expectedFiles: []expectedFile{
+		testEndpoint("/users/files/own", 200, to{cookies: cookies2, expectedFiles: []expectedFile{
 			{name: "testfile.txt", description: "file"}, {name: "testfile_2.txt", description: "file"}}}))
 	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "testfile_3.txt"}))
 
 	t.Run("User should be able to download its files",
-		testEndpoint("/users/files/download", 200, to{token: token2, query: "?id=1", fileContent: "file content\n"}))
+		testEndpoint("/users/files/download", 200, to{cookies: cookies2, query: "?id=1", fileContent: "file content\n"}))
 
 	t.Run("User should not be able to download deleted files",
-		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=2"}))
+		testEndpoint("/users/files/download", 401, to{cookies: cookies2, query: "?id=2"}))
 	t.Run("User should not be able to download another user's files",
-		testEndpoint("/users/files/download", 401, to{token: token2, query: "?id=4"}))
+		testEndpoint("/users/files/download", 401, to{cookies: cookies2, query: "?id=4"}))
 	t.Run("User should not be able to download files with invalid parameters",
-		testEndpoint("/users/files/download", 400, to{token: token2, query: "?id=0"}))
+		testEndpoint("/users/files/download", 400, to{cookies: cookies2, query: "?id=0"}))
 	t.Run("User should not be able to delete another user's files",
-		testEndpoint("/users/files/delete", 401, to{token: token2, query: "?id=4"}))
+		testEndpoint("/users/files/delete", 401, to{cookies: cookies2, query: "?id=4"}))
 
 	t.Run("Admin should be able to download another user's files",
-		testEndpoint("/users/files/download", 200, to{token: token1, query: "?id=4", fileContent: "file content\n"}))
+		testEndpoint("/users/files/download", 200, to{cookies: cookies1, query: "?id=4", fileContent: "file content\n"}))
 	t.Run("Admin should be able to delete another user's files",
-		testEndpoint("/users/files/delete", 200, to{token: token1, query: "?id=4"}))
+		testEndpoint("/users/files/delete", 200, to{cookies: cookies1, query: "?id=4"}))
 	t.Run("User deleted file should have disappeared from uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt"}))
 
 	// User validation, including validation messages
@@ -206,24 +204,24 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-logged user should not get list of unvalidated users",
 		testEndpoint("/users/unvalidated/get", 401, to{}))
 	t.Run("Non-admin user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{token: token2}))
+		testEndpoint("/users/unvalidated/get", 401, to{cookies: cookies2}))
 	t.Run("Admin user should get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}, {uniqueID: uniqueID5}}}))
 
 	t.Run("Non-logged user should not be able to add messages",
 		testEndpoint("/users/messages/add", 401, to{params: m{"user_id": 2, "content": "message content"}}))
 	t.Run("Non-admin user should not be able to add messages",
-		testEndpoint("/users/messages/add", 401, to{token: token2, params: m{"user_id": 2, "content": "message content"}}))
+		testEndpoint("/users/messages/add", 401, to{cookies: cookies2, params: m{"user_id": 2, "content": "message content"}}))
 	t.Run("Admin user should be able to add messages",
-		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content user 2"}}))
+		testEndpoint("/users/messages/add", 200, to{cookies: cookies1, params: m{"user_id": 2, "content": "message content user 2"}}))
 	t.Run("Admin user should be able to add messages",
-		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 2, "content": "message content user 2"}}))
+		testEndpoint("/users/messages/add", 200, to{cookies: cookies1, params: m{"user_id": 2, "content": "message content user 2"}}))
 	t.Run("Admin user should be able to add messages",
-		testEndpoint("/users/messages/add", 200, to{token: token1, params: m{"user_id": 3, "content": "message content user 3"}}))
+		testEndpoint("/users/messages/add", 200, to{cookies: cookies1, params: m{"user_id": 3, "content": "message content user 3"}}))
 
 	t.Run("List of unvalidated users should contain messages",
-		testEndpoint("/users/unvalidated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2", "message content user 2"}},
 			{uniqueID: uniqueID3, unsolvedMessages: []string{"message content user 3"}},
 			{uniqueID: uniqueID5, unsolvedMessages: []string{}}}}))
@@ -231,42 +229,42 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-logged user should not be able to get messages",
 		testEndpoint("/users/messages/own", 401, to{}))
 	t.Run("Logged user should get its own messages",
-		testEndpoint("/users/messages/own", 200, to{token: token2, expectedUnsolvedMessages: []string{"message content user 2", "message content user 2"}}))
+		testEndpoint("/users/messages/own", 200, to{cookies: cookies2, expectedUnsolvedMessages: []string{"message content user 2", "message content user 2"}}))
 
 	t.Run("Non-logged user should not be able to solve messages",
 		testEndpoint("/users/messages/solve", 401, to{query: "?id=1"}))
 	t.Run("Logged user should be able to solve its messages",
-		testEndpoint("/users/messages/solve", 200, to{token: token2, query: "?id=1"}))
+		testEndpoint("/users/messages/solve", 200, to{cookies: cookies2, query: "?id=1"}))
 	t.Run("Logged user should not be able to solve another user's messages",
-		testEndpoint("/users/messages/solve", 401, to{token: token2, query: "?id=3"}))
+		testEndpoint("/users/messages/solve", 401, to{cookies: cookies2, query: "?id=3"}))
 	t.Run("Logged user should not be able to solve messages with invalid parameters",
-		testEndpoint("/users/messages/solve", 400, to{token: token2, query: "?id=-123"}))
+		testEndpoint("/users/messages/solve", 400, to{cookies: cookies2, query: "?id=-123"}))
 	t.Run("Admin user should be able to solve another user's messages",
-		testEndpoint("/users/messages/solve", 200, to{token: token1, query: "?id=3"}))
+		testEndpoint("/users/messages/solve", 200, to{cookies: cookies1, query: "?id=3"}))
 
 	t.Run("Validated messages should not appear",
-		testEndpoint("/users/messages/own", 200, to{token: token2, expectedUnsolvedMessages: []string{"message content user 2"}}))
+		testEndpoint("/users/messages/own", 200, to{cookies: cookies2, expectedUnsolvedMessages: []string{"message content user 2"}}))
 	t.Run("Validated messages should not appear",
-		testEndpoint("/users/messages/own", 200, to{token: token3, expectedUnsolvedMessages: []string{}}))
+		testEndpoint("/users/messages/own", 200, to{cookies: cookies3, expectedUnsolvedMessages: []string{}}))
 
 	t.Run("The only validated user should be admin",
-		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{{uniqueID: uniqueID1}}}))
+		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{{uniqueID: uniqueID1}}}))
 
 	t.Run("Non-logged user should not be able to validate users",
 		testEndpoint("/users/validate", 401, to{query: "?id=2"}))
 	t.Run("Non-admin user should not be able to validate users",
-		testEndpoint("/users/validate", 401, to{token: token2, query: "?id=2"}))
+		testEndpoint("/users/validate", 401, to{cookies: cookies2, query: "?id=2"}))
 	t.Run("Admin user should be able to validate users with invalid paramters",
-		testEndpoint("/users/validate", 400, to{token: token1, query: "?id=0"}))
+		testEndpoint("/users/validate", 400, to{cookies: cookies1, query: "?id=0"}))
 	t.Run("Admin user should be able to validate users",
-		testEndpoint("/users/validate", 200, to{token: token1, query: "?id=2"}))
+		testEndpoint("/users/validate", 200, to{cookies: cookies1, query: "?id=2"}))
 
 	t.Run("Unexisting users cannot be validated",
-		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=999"}))
+		testEndpoint("/users/validate", 500, to{cookies: cookies1, query: "?id=999"}))
 	t.Run("Validated users cannot be validated again",
-		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=2"}))
+		testEndpoint("/users/validate", 500, to{cookies: cookies1, query: "?id=2"}))
 	t.Run("Admin users cannot be validated",
-		testEndpoint("/users/validate", 500, to{token: token1, query: "?id=1"}))
+		testEndpoint("/users/validate", 500, to{cookies: cookies1, query: "?id=1"}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID3, role: ROLE_NONE},
@@ -275,7 +273,7 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
 	t.Run("There should be two validated users",
-		testEndpoint("/users/validated/get", 200, to{token: token1, expectedUsers: []expectedUser{
+		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
 			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
 
 	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation", Image: "candidate.jpg"}
@@ -285,27 +283,27 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-logged users should not be able to add candidates",
 		testEndpoint("/candidates/add", 401, to{candidate: candidate1}))
 	t.Run("Non-admin users should not be able to add candidates",
-		testEndpoint("/candidates/add", 401, to{token: token2, candidate: candidate1}))
+		testEndpoint("/candidates/add", 401, to{cookies: cookies2, candidate: candidate1}))
 	t.Run("Admin users should not be able to add candidates with invalid parameters",
-		testEndpoint("/candidates/add", 400, to{token: token1, candidate: candidateWrong}))
+		testEndpoint("/candidates/add", 400, to{cookies: cookies1, candidate: candidateWrong}))
 	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{token: token1, candidate: candidate1}))
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
 	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{token: token1, candidate: candidate2}))
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate2}))
 
 	candidate2.Image = "candidate_1.jpg"
 	t.Run("Non-logged users should be able to get candidates",
 		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1, candidate2}}))
 	t.Run("Logged users should be able to get candidates",
-		testEndpoint("/candidates/get", 200, to{token: token2, expectedCandidates: []Candidate{candidate1, candidate2}}))
+		testEndpoint("/candidates/get", 200, to{cookies: cookies2, expectedCandidates: []Candidate{candidate1, candidate2}}))
 	t.Run("Candidate images should appear in uploads folder", checkUploadsFolder([]string{"testfile.txt", "testfile_2.txt", "candidate.jpg", "candidate_1.jpg"}))
 
 	t.Run("Non-logged users should not be able to delete candidates",
 		testEndpoint("/candidates/delete", 401, to{query: "?id=2"}))
 	t.Run("Non-admin users should not be able to delete candidates",
-		testEndpoint("/candidates/delete", 401, to{token: token2, query: "?id=2"}))
+		testEndpoint("/candidates/delete", 401, to{cookies: cookies2, query: "?id=2"}))
 	t.Run("Admin users should be able to delete candidates",
-		testEndpoint("/candidates/delete", 200, to{token: token1, query: "?id=2"}))
+		testEndpoint("/candidates/delete", 200, to{cookies: cookies1, query: "?id=2"}))
 
 	t.Run("Deleted candidate should not appear anymore",
 		testEndpoint("/candidates/get", 200, to{expectedCandidates: []Candidate{candidate1}}))
@@ -318,16 +316,16 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-logged user should be able to see any elections yet",
 		testEndpoint("/elections/get", 200, to{expectedElections: []Election{}}))
 	t.Run("Non-admin user should be able to see any elections yet",
-		testEndpoint("/elections/get", 200, to{token: token2, expectedElections: []Election{}}))
+		testEndpoint("/elections/get", 200, to{cookies: cookies2, expectedElections: []Election{}}))
 	t.Run("Admin user should be able to see unpublished elections",
-		testEndpoint("/elections/get", 200, to{token: token1, expectedElections: []Election{election}}))
+		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
 
 	t.Run("Non-logged user should not be able to publish election",
 		testEndpoint("/elections/publish", 401, to{query: "?id=1"}))
 	t.Run("Non-admin user should not be able to publish election",
-		testEndpoint("/elections/publish", 401, to{token: token2, query: "?id=1"}))
+		testEndpoint("/elections/publish", 401, to{cookies: cookies2, query: "?id=1"}))
 	t.Run("Admin user should be able to publish election",
-		testEndpoint("/elections/publish", 200, to{token: token1, query: "?id=1"}))
+		testEndpoint("/elections/publish", 200, to{cookies: cookies1, query: "?id=1"}))
 
 	election.Public = true
 	t.Run("Non-logged user should be able to see elections",
@@ -398,17 +396,20 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			t.Fatalf("[%d] Could not create request for endpoint %q. Error: %s\n", i, path, err)
 		}
 
-		if options.token != "" {
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", options.token))
+		if options.cookies != nil {
+			for _, cookie := range options.cookies {
+				req.AddCookie(cookie)
+			}
 		}
 		req.Header.Set("Content-Type", contentType)
 
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(appHandlers[path])
 		handler.ServeHTTP(rr, req)
-		if options.resToken != nil {
-			token := rr.Body.String()
-			*options.resToken = strings.Trim(token, "\"")
+		if options.resCookies != nil {
+			for _, cookie := range rr.Result().Cookies() {
+				*options.resCookies = append(*options.resCookies, cookie)
+			}
 		}
 		if rr.Code != expectedCode {
 			t.Errorf("[%d] Expected code %v testing endpoint %q, but got %v.", i, expectedCode, path, rr.Code)

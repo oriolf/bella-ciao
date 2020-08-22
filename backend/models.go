@@ -3,17 +3,10 @@ package main
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
 type DBType interface {
 	CreateTableQuery() string
-}
-
-type Claims struct {
-	User
-	jwt.StandardClaims
 }
 
 type User struct {
