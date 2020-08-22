@@ -4,7 +4,7 @@
   import Uninitialized from "../components/Uninitialized.svelte";
 
   async function askUninitialized() {
-    let res = await fetch("/uninitialized");
+    let res = await fetch("/api/uninitialized");
     if (!res.ok) {
       throw new Error("Already initialized");
     }

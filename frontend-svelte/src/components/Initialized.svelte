@@ -6,7 +6,7 @@
   import RoleAdmin from "./RoleAdmin.svelte";
 
   async function whoami() {
-    let res = await fetch("/users/whoami");
+    let res = await fetch("/api/users/whoami");
     if (!res.ok) {
       throw new Error("Not logged in");
     }

@@ -5,7 +5,7 @@
   export let segment;
 
   async function logout() {
-    await fetch("auth/logout");
+    await fetch("/api/auth/logout");
     await goto("/"); // TODO does not reload if we already in "/"
   }
 </script>
