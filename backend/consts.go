@@ -1,4 +1,5 @@
 // TODO maybe some consts could be defined by environment variables; that would require that dart constants also come from the environment...
+// TODO add function that generates constants in frontend format, so we can build backend -> generate frontend constants -> build frontend -> build docker image
 package main
 
 import (

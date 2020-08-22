@@ -48,6 +48,8 @@ type expectedFile struct {
 }
 
 // TODO HTTP methods should have rational meaning
+// TODO test concurrent queries that insert in the database all work properly
+// TODO test that endpoints used in frontend match endpoints defined in appHandlers
 func TestAPI(t *testing.T) {
 	bootstrap()
 
