@@ -4,6 +4,7 @@
   import RoleNone from "./RoleNone.svelte";
   import RoleValidated from "./RoleValidated.svelte";
   import RoleAdmin from "./RoleAdmin.svelte";
+  import Loading from "./Loading.svelte";
 
   async function whoami() {
     let res = await fetch("/api/users/whoami");
@@ -23,7 +24,7 @@
 </svelte:head>
 
 {#await promise}
-  <p>...waiting</p>
+  <Loading />
 {:then user}
   {#if user.role === 'none'}
     <RoleNone />

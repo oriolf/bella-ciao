@@ -3,6 +3,10 @@
   // TODO only show logout if logged in
 
   export let segment;
+  let links = [
+    { segment: undefined, href: ".", name: "Home" },
+    { segment: "faq", href: "faq", name: "FAQ" },
+  ];
 
   async function logout() {
     await fetch("/api/auth/logout");
@@ -17,7 +21,7 @@
 </style>
 
 <nav class="navbar navbar-expand-lg sticky-top navbar-dark bg-primary">
-  <a class="navbar-brand" href=".">Home</a>
+  <span class="navbar-brand">Bella Ciao</span>
   <button
     class="navbar-toggler"
     type="button"
@@ -30,20 +34,23 @@
   </button>
   <div class="collapse navbar-collapse" id="navbar">
     <ul class="navbar-nav mr-auto">
-      <li class={segment === 'faq' ? 'nav-item active' : 'nav-item'}>
-        <a
-          class="nav-link"
-          aria-current={segment === 'faq' ? 'page' : undefined}
-          href="faq">
-          FAQ
-          {#if segment === 'faq'}
-            <span class="sr-only">(current)</span>
-          {/if}
-        </a>
-      </li>
+      {#each links as link}
+        <li class={segment === link.segment ? 'nav-item active' : 'nav-item'}>
+          <a
+            class="nav-link"
+            aria-current={segment === link.segment ? 'page' : undefined}
+            href={link.href}>
+            {link.name}
+            {#if segment === link.segment}
+              <span class="sr-only">(current)</span>
+            {/if}
+          </a>
+        </li>
+      {/each}
     </ul>
+    {segment}
     <span class="navbar-text">
-      <a href="." on:click={logout}>Log out</a>
+      <a class="nav-link" href="." on:click={logout}>Log out</a>
     </span>
   </div>
 </nav>

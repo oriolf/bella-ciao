@@ -2,6 +2,7 @@
   import Error from "./_error.svelte";
   import Initialized from "../components/Initialized.svelte";
   import Uninitialized from "../components/Uninitialized.svelte";
+  import Loading from "../components/Loading.svelte";
 
   async function askUninitialized() {
     let res = await fetch("/api/uninitialized");
@@ -17,7 +18,7 @@
 </svelte:head>
 
 {#await promise}
-  <p>...waiting</p>
+  <Loading />
 {:then _}
   <Uninitialized />
 {:catch _}
