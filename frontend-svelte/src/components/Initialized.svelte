@@ -5,15 +5,18 @@
   import RoleValidated from "./RoleValidated.svelte";
   import RoleAdmin from "./RoleAdmin.svelte";
   import Loading from "./Loading.svelte";
+  import { user } from "../store.js";
+
+  let promise = whoami();
 
   async function whoami() {
     let res = await fetch("/api/users/whoami");
     if (!res.ok) {
       throw new Error("Not logged in");
     }
-    return res.json();
+    user.set(await res.json());
   }
-  let promise = whoami(); // TODO should be called in onMount
+  
   function getUser() {
     promise = whoami();
   }
@@ -25,15 +28,15 @@
 
 {#await promise}
   <Loading />
-{:then user}
-  {#if user.role === 'none'}
+{:then _}
+  {#if $user.role === 'none'}
     <RoleNone />
-  {:else if user.role === 'validated'}
+  {:else if $user.role === 'validated'}
     <RoleValidated />
-  {:else if user.role === 'admin'}
+  {:else if $user.role === 'admin'}
     <RoleAdmin />
   {:else}
-    <p>Unknown user role {user.role}</p>
+    <p>Unknown user role {$user.role}</p>
   {/if}
 {:catch _}
   <LoginForm on:loggedin={getUser} />

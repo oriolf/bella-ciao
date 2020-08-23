@@ -1,6 +1,6 @@
 <script>
   import { goto } from "@sapper/app";
-  // TODO only show logout if logged in
+  import { user } from "../store.js";
 
   export let segment;
   let links = [
@@ -10,7 +10,8 @@
 
   async function logout() {
     await fetch("/api/auth/logout");
-    await goto("/"); // TODO does not reload if we already in "/"
+    user.set(null);
+    window.location = "/";
   }
 </script>
 
@@ -48,9 +49,10 @@
         </li>
       {/each}
     </ul>
-    {segment}
+    {#if $user}
     <span class="navbar-text">
       <a class="nav-link" href="." on:click={logout}>Log out</a>
     </span>
+    {/if}
   </div>
 </nav>
