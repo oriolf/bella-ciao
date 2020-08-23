@@ -4,13 +4,13 @@
   import Uninitialized from "../components/Uninitialized.svelte";
   import Loading from "../components/Loading.svelte";
 
+  let promise = askUninitialized();
   async function askUninitialized() {
     let res = await fetch("/api/uninitialized");
     if (!res.ok) {
       throw new Error("Already initialized");
     }
   }
-  let promise = askUninitialized();
 </script>
 
 <svelte:head>

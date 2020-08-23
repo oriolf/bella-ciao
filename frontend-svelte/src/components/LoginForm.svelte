@@ -1,24 +1,13 @@
 <script>
   import { createEventDispatcher } from "svelte";
+  import { submitForm } from "../util.js";
 
   const dispatch = createEventDispatcher();
   let showError = false;
 
   async function login(e) {
-    e.preventDefault();
-    let data = new FormData(e.target);
-    let json = {};
-    data.forEach(function (v, k) {
-      json[k] = v;
-    });
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(json),
-    });
-    if (response.ok) {
+    const res = await submitForm(e, "/api/auth/login");
+    if (res.ok) {
       dispatch("loggedin", true);
     } else {
       showError = true;
