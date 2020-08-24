@@ -36,7 +36,7 @@
   <div class="collapse navbar-collapse" id="navbar">
     <ul class="navbar-nav mr-auto">
       {#each links as link}
-        <li class={segment === link.segment ? 'nav-item active' : 'nav-item'}>
+        <li class="nav-item" class:active={segment === link.segment}>
           <a
             class="nav-link"
             aria-current={segment === link.segment ? 'page' : undefined}
@@ -50,9 +50,9 @@
       {/each}
     </ul>
     {#if $user}
-    <span class="navbar-text">
-      <a class="nav-link" href="." on:click={logout}>Log out</a>
-    </span>
+      <span class="navbar-text">
+        <a class="nav-link" href="." on:click={logout}>Log out</a>
+      </span>
     {/if}
   </div>
 </nav>
