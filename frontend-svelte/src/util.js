@@ -36,3 +36,14 @@ export async function submitForm(url, values, jsonFunc) {
         body: JSON.stringify(values),
     });
 }
+
+export function sortByField(field) {
+    return (a, b) => {
+        if (a[field] < b[field]) {
+            return -1;
+        } else if (a[field] > b[field]) {
+            return 1;
+        }
+        return 0;
+    }
+}

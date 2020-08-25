@@ -241,6 +241,7 @@ func getUserFiles(db *sql.Tx, id int) (files []UserFile, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not select: %w", err)
 	}
+	files = make([]UserFile, 0)
 	for _, x := range fs {
 		files = append(files, x.(UserFile))
 	}
@@ -316,6 +317,7 @@ func getUserMessages(db *sql.Tx, id int) (messages []UserMessage, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not get messages: %w", err)
 	}
+	messages = make([]UserMessage, 0)
 	for _, x := range ms {
 		messages = append(messages, x.(UserMessage))
 	}
