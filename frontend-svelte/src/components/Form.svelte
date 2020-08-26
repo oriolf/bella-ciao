@@ -1,5 +1,10 @@
 <script>
-  import { submitForm, validationFuncs, extractFormValues } from "../util";
+  import {
+    submitForm,
+    submitFormJSON,
+    validationFuncs,
+    extractFormValuesJSON,
+  } from "../util";
   import { createEventDispatcher, onMount } from "svelte";
 
   export let params;
@@ -27,7 +32,7 @@
 
   async function submit(event) {
     event.preventDefault();
-    const values = extractFormValues(event);
+    const values = extractFormValuesJSON(event);
     errors = valFuncs(values);
 
     // TODO update error messages on each change in inputs, after the first submit attempt
@@ -52,7 +57,12 @@
       return;
     }
 
-    const res = await submitForm(params.url, values, params.jsonFunc);
+    let res;
+    if (params.values === "form") {
+      res = await submitForm(params.url, event.target);
+    } else {
+      res = await submitFormJSON(params.url, values, params.jsonFunc);
+    }
     if (res.ok) {
       dispatch("executed", true);
     } else {
@@ -68,18 +78,31 @@
 {:else}
   <form on:submit={submit} class="needs-validation" novalidate>
     {#each params.fields as field}
-      <div class="form-group">
-        <input
-          class="form-control"
-          class:is-invalid={errors[field.name]}
-          id={field.name}
-          name={field.name}
-          aria-describedby={field.name + '_help'}
-          placeholder={field.hint}
-          type={field.type || 'text'}
-          required={field.required} />
-        <div class="invalid-feedback">{field.errString}</div>
-      </div>
+      {#if field.type !== 'file'}
+        <div class="form-group">
+          <input
+            class="form-control"
+            class:is-invalid={errors[field.name]}
+            id={field.name}
+            name={field.name}
+            aria-describedby={field.name + '_help'}
+            placeholder={field.hint}
+            type={field.type || 'text'}
+            required={field.required} />
+          <div class="invalid-feedback">{field.errString}</div>
+        </div>
+      {:else}
+        <div class="custom-file" style="margin-bottom: 10px;">
+          <input
+            type="file"
+            class="custom-file-input"
+            id={field.name}
+            name={field.name}
+            required={field.required} />
+          <label class="custom-file-label" for={field.name}>{field.hint}</label>
+          <div class="invalid-feedback">{field.errString}</div>
+        </div>
+      {/if}
     {/each}
     <button type="submit" class="btn btn-primary">{params.name}</button>
     <slot />

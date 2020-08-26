@@ -8,8 +8,7 @@
 	main {
 		position: relative;
 		max-width: 1024px;
-		background-color: white;
-		padding: 2em;
+		padding: 5px;
 		margin: 0 auto;
 		box-sizing: border-box;
 	}

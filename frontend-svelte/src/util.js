@@ -2,7 +2,7 @@ export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function extractFormValues(event) {
+export function extractFormValuesJSON(event) {
     let data = new FormData(event.target);
     let json = {};
     data.forEach(function (v, k) {
@@ -24,7 +24,28 @@ export function validationFuncs(funcs) {
     }
 }
 
-export async function submitForm(url, values, jsonFunc) {
+export async function get(url, sortFunc) {
+    let res = await fetch(url);
+    if (!res.ok) {
+        throw new Error("Could not get files");
+    }
+    let r = (await res.json())
+    if (sortFunc) {
+        r = r.sort(sortFunc);
+    }
+    return r;
+}
+
+export async function submitForm(url, form) {
+    return await fetch(url, {
+        method: "POST",
+        // do not set content type so client detects and sets appropriate content-type and boundary: https://stackoverflow.com/questions/39280438/fetch-missing-boundary-in-multipart-form-data-post
+        headers: {},
+        body: new FormData(form)
+    });
+}
+
+export async function submitFormJSON(url, values, jsonFunc) {
     if (jsonFunc !== undefined) {
         values = jsonFunc(values);
     }
