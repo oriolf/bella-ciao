@@ -1,4 +1,5 @@
 <script>
+  // TODO have a different initialize page and avoid calling uninitialized every time
   import Error from "./_error.svelte";
   import Initialized from "../components/Initialized.svelte";
   import Uninitialized from "../components/Uninitialized.svelte";

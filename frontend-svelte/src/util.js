@@ -68,3 +68,7 @@ export function sortByField(field) {
         return 0;
     }
 }
+
+export function formatDate(s) {
+    return (new Date(s)).toLocaleString();
+}

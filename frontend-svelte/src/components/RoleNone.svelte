@@ -4,11 +4,11 @@
   import Button from "./Button.svelte";
   import CardTable from "./CardTable.svelte";
   import Form from "./Form.svelte";
-  import DownloadFileButton from "./DownloadFileButton.svelte";
-  import { get, sortByField } from "../util";
+  import UserFiles from "./UserFiles.svelte";
+  import { get, sortByField } from "../util.js";
 
-  let files;
   let messages;
+  let reloadFiles = 0;
   let uploadFileForm = {
     name: "Upload file",
     values: "form",
@@ -29,12 +29,8 @@
     ],
   };
 
-  getFiles();
   getMessages();
 
-  async function getFiles() {
-    files = get("/api/users/files/own", sortByField("name"));
-  }
   async function getMessages() {
     messages = get("/api/users/messages/own", sortByField("solved"));
   }
@@ -43,11 +39,6 @@
   async function solveMessage(id) {
     await fetch(`/api/users/messages/solve?id=${id}`);
     getMessages();
-  }
-
-  async function deleteFile(id) {
-    await fetch(`/api/users/files/delete?id=${id}`);
-    getFiles();
   }
 </script>
 
@@ -79,28 +70,11 @@
 <h2>Uploaded files</h2>
 <p>Upload the required files and remove those that are no longer necessary.</p>
 
-<CardTable
-  headers={['Description', '', '']}
-  rows={files}
-  error="Could not obtain the uploaded files"
-  let:row>
-  <td>{row.description}</td>
-  <td>
-    <DownloadFileButton
-      url={`/api/users/files/download?id=${row.id}`}
-      filename={row.name} />
-  </td>
-  <td>
-    <Button
-      content="Delete file"
-      type="danger"
-      callback={() => deleteFile(row.id)} />
-  </td>
-</CardTable>
+<UserFiles {reloadFiles} />
 
 <div class="card">
   <div class="card-header">Upload file</div>
   <div class="card-body">
-    <Form params={uploadFileForm} on:executed={getFiles} />
+    <Form params={uploadFileForm} on:executed={() => (reloadFiles += 1)} />
   </div>
 </div>
