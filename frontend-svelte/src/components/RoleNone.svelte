@@ -49,8 +49,6 @@
     await fetch(`/api/users/files/delete?id=${id}`);
     getFiles();
   }
-
-  // TODO reset form after uploading file, see selected file instead of "Upload file" text
 </script>
 
 <Alert
@@ -73,7 +71,7 @@
     {#if row.solved}
       <em>(already solved)</em>
     {:else}
-      <Button content="Mark as solved" callback={() => solveMessage(msg.id)} />
+      <Button content="Mark as solved" callback={() => solveMessage(row.id)} />
     {/if}
   </td>
 </CardTable>

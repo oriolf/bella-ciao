@@ -30,13 +30,14 @@
     valFuncs = validationFuncs(l);
   });
 
-  async function submit(event) {
-    event.preventDefault();
-    const values = extractFormValuesJSON(event);
+  function updateValidation(event) {
+    let form = event.target.form;
+    const values = extractFormValuesJSON(form);
     errors = valFuncs(values);
+    updateValidationAux(form, values, errors);
+  }
 
-    // TODO update error messages on each change in inputs, after the first submit attempt
-    let form = event.target;
+  function updateValidationAux(form, values, errors) {
     for (let el of form.elements) {
       if (errors[el.name]) {
         el.setCustomValidity(errors[el.name]);
@@ -52,8 +53,17 @@
       }
     }
 
+    return form.checkValidity();
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+
+    let form = event.target;
+    const values = extractFormValuesJSON(form);
+    errors = valFuncs(values);
     form.classList.add("was-validated");
-    if (!form.checkValidity()) {
+    if (!updateValidationAux(form, values, errors)) {
       return;
     }
 
@@ -65,6 +75,8 @@
     }
     if (res.ok) {
       dispatch("executed", true);
+      form.reset();
+      form.classList.remove("was-validated");
     } else {
       if (Object.keys(errors).length === 0) {
         generalError = params.generalError;
@@ -81,6 +93,7 @@
       {#if field.type !== 'file'}
         <div class="form-group">
           <input
+            on:input={updateValidation}
             class="form-control"
             class:is-invalid={errors[field.name]}
             id={field.name}
@@ -92,14 +105,14 @@
           <div class="invalid-feedback">{field.errString}</div>
         </div>
       {:else}
-        <div class="custom-file" style="margin-bottom: 10px;">
+        <div class="form-group" style="margin-bottom: 10px;">
           <input
+            on:input={updateValidation}
             type="file"
-            class="custom-file-input"
+            class="form-control-file"
             id={field.name}
             name={field.name}
             required={field.required} />
-          <label class="custom-file-label" for={field.name}>{field.hint}</label>
           <div class="invalid-feedback">{field.errString}</div>
         </div>
       {/if}

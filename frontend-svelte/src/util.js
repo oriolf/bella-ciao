@@ -2,8 +2,8 @@ export function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function extractFormValuesJSON(event) {
-    let data = new FormData(event.target);
+export function extractFormValuesJSON(form) {
+    let data = new FormData(form);
     let json = {};
     data.forEach(function (v, k) {
         json[k] = v;
