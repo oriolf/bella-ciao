@@ -11,8 +11,18 @@
   let response;
   let page = 1;
   let query = "";
+  let timer;
 
-  async function getUsers() {
+  const debounce = (v) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      query = v;
+    }, 400);
+  };
+
+  $: getUsers(page, query);
+
+  async function getUsers(page, query) {
     response = get(`${url}?page=${page}&items_per_page=10&query=${query}`);
     console.log("USERS:", await response);
   }
@@ -32,12 +42,20 @@
   }
 </style>
 
-
-{#await response}
-  <Loading />
-{:then resp}
-  <div class="card">
-    <div class="card-body">
+<div class="card">
+  <div class="card-body">
+    <div class="input-group mb-3">
+      <input
+        type="text"
+        class="form-control"
+        placeholder="Filter by user identifier"
+        aria-label="Filter by user identifier"
+        aria-describedby="filter-users"
+        on:keyup={({ target: { value } }) => debounce(value)} />
+    </div>
+    {#await response}
+      <Loading />
+    {:then resp}
       {#each resp.users || [] as user}
         <div class="container user-container">
           <div class="row" style="margin-top: 5px;">
@@ -96,8 +114,8 @@
           {/each}
         </div>
       {/each}
-    </div>
+    {:catch _}
+      <Alert type="danger" content={error} />
+    {/await}
   </div>
-{:catch _}
-  <Alert type="danger" content={error} />
-{/await}
+</div>
