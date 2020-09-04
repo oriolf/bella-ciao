@@ -42,6 +42,11 @@ var (
 				File("file").
 				String("description", par.NonEmpty).End()
 
+	userListParams = par.P("query").
+			Int("page", par.PositiveInt).
+			Int("items_per_page", par.PositiveInt).
+			String("query").End()
+
 	addCandidateParams = par.P("form").
 				File("image").
 				String("name", par.NonEmpty).
@@ -79,8 +84,8 @@ var (
 		"/users/files/download": handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
 		"/users/files/upload":   handler(uploadFileParams, requireLogin, UploadFile),
 
-		"/users/unvalidated/get": handler(noParams, tokenFuncs(requireLogin, adminUser), GetUnvalidatedUsers),
-		"/users/validated/get":   handler(noParams, tokenFuncs(requireLogin, adminUser), GetValidatedUsers),
+		"/users/unvalidated/get": handler(userListParams, tokenFuncs(requireLogin, adminUser), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(userListParams, tokenFuncs(requireLogin, adminUser), GetValidatedUsers),
 		"/users/messages/add":    handler(addMessageParams, tokenFuncs(requireLogin, adminUser), AddMessage),
 		"/users/messages/own":    handler(noParams, requireLogin, GetOwnMessages),
 		"/users/messages/solve":  handler(idParams, tokenFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),

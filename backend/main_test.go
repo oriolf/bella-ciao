@@ -28,11 +28,16 @@ type testOptions struct {
 
 	file                     expectedFile
 	fileContent              string
-	expectedUsers            []expectedUser
+	expectedUsers            expectedUsersResponse
 	expectedFiles            []expectedFile
 	expectedUnsolvedMessages []string
 	expectedCandidates       []Candidate
 	expectedElections        []Election
+}
+
+type expectedUsersResponse struct {
+	Users []expectedUser
+	Total int
 }
 
 type expectedUser struct {
@@ -49,6 +54,7 @@ type expectedFile struct {
 // TODO HTTP methods should have rational meaning
 // TODO test concurrent queries that insert in the database all work properly
 // TODO test that endpoints used in frontend match endpoints defined in appHandlers
+// TODO test user pagination properly
 func TestAPI(t *testing.T) {
 	bootstrap()
 
@@ -204,12 +210,12 @@ func TestAPI(t *testing.T) {
 	// User validation, including validation messages
 
 	t.Run("Non-logged user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{}))
+		testEndpoint("/users/unvalidated/get", 401, to{query: "?page=1&items_per_page=5"}))
 	t.Run("Non-admin user should not get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 401, to{cookies: cookies2}))
+		testEndpoint("/users/unvalidated/get", 401, to{cookies: cookies2, query: "?page=1&items_per_page=5"}))
 	t.Run("Admin user should get list of unvalidated users",
-		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}, {uniqueID: uniqueID5}}}))
+		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, query: "?page=1&items_per_page=5", expectedUsers: expectedUsersResponse{Total: 3, Users: []expectedUser{
+			{uniqueID: uniqueID2}, {uniqueID: uniqueID3}, {uniqueID: uniqueID5}}}}))
 
 	t.Run("Non-logged user should not be able to add messages",
 		testEndpoint("/users/messages/add", 401, to{params: m{"user_id": 2, "content": "message content"}}))
@@ -223,10 +229,10 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/messages/add", 200, to{cookies: cookies1, params: m{"user_id": 3, "content": "message content user 3"}}))
 
 	t.Run("List of unvalidated users should contain messages",
-		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
+		testEndpoint("/users/unvalidated/get", 200, to{cookies: cookies1, query: "?page=1&items_per_page=5", expectedUsers: expectedUsersResponse{Total: 3, Users: []expectedUser{
 			{uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2", "message content user 2"}},
 			{uniqueID: uniqueID3, unsolvedMessages: []string{"message content user 3"}},
-			{uniqueID: uniqueID5, unsolvedMessages: []string{}}}}))
+			{uniqueID: uniqueID5, unsolvedMessages: []string{}}}}}))
 
 	t.Run("Non-logged user should not be able to get messages",
 		testEndpoint("/users/messages/own", 401, to{}))
@@ -250,7 +256,7 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/users/messages/own", 200, to{cookies: cookies3, expectedUnsolvedMessages: []string{}}))
 
 	t.Run("The only validated user should be admin",
-		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{{uniqueID: uniqueID1}}}))
+		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, query: "?page=1&items_per_page=5", expectedUsers: expectedUsersResponse{Total: 1, Users: []expectedUser{{uniqueID: uniqueID1}}}}))
 
 	t.Run("Non-logged user should not be able to validate users",
 		testEndpoint("/users/validate", 401, to{query: "?id=2"}))
@@ -275,8 +281,8 @@ func TestAPI(t *testing.T) {
 		{uniqueID: uniqueID1, role: ROLE_ADMIN}}))
 
 	t.Run("There should be two validated users",
-		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, expectedUsers: []expectedUser{
-			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}))
+		testEndpoint("/users/validated/get", 200, to{cookies: cookies1, query: "?page=1&items_per_page=5", expectedUsers: expectedUsersResponse{Total: 2, Users: []expectedUser{
+			{uniqueID: uniqueID1}, {uniqueID: uniqueID2, unsolvedMessages: []string{"message content user 2"}}}}}))
 
 	candidate1 := Candidate{Name: "candidate 1", Presentation: "candidate 1 presentation", Image: "candidate.jpg"}
 	candidate2 := Candidate{Name: "candidate 2", Presentation: "candidate 2 presentation", Image: "candidate.jpg"}
@@ -429,12 +435,15 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 		if rr.Code != expectedCode {
 			t.Errorf("[%d] Expected code %v testing endpoint %q, but got %v.", i, expectedCode, path, rr.Code)
 		}
-		if options.expectedUsers != nil {
-			var users []User
-			if err := json.Unmarshal([]byte(rr.Body.String()), &users); err != nil {
+		if options.expectedUsers.Users != nil {
+			var response getUsersResponse
+			if err := json.Unmarshal([]byte(rr.Body.String()), &response); err != nil {
 				t.Errorf("Could not unmarshal expected users response: %s", err)
 			} else {
-				compareUsers(t, options.expectedUsers, users)
+				compareUsers(t, options.expectedUsers.Users, response.Users)
+				if options.expectedUsers.Total != response.Total {
+					t.Errorf("Expected %d total users but got %d.", options.expectedUsers.Total, response.Total)
+				}
 			}
 		}
 

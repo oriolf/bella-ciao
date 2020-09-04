@@ -213,7 +213,13 @@ func GetValidatedUsers(r *http.Request, w http.ResponseWriter, db *sql.Tx, user 
 }
 
 func GetUsers(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values, where string) error {
-	users, err := getUsers(db, where)
+	limit, offset := decodePager(p)
+	var query string
+	if q := p.String("query"); q != "" {
+		query = "%" + q + "%"
+		where += " AND unique_id LIKE ?"
+	}
+	users, err := getUsers(db, where, query, limit, offset)
 	if err != nil {
 		return fmt.Errorf("could not get users from db: %w", err)
 	}

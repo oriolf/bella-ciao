@@ -141,6 +141,12 @@ func (p params) endQueryParams(r *http.Request) (Values, error) {
 				return nil, err
 			}
 			vals[name] = v
+		case "string":
+			v, err := getQueryString(r, p, name)
+			if err != nil {
+				return nil, err
+			}
+			vals[name] = v
 		default:
 			panic(fmt.Sprintf("unknown value kind %q", kind))
 		}
@@ -315,6 +321,17 @@ func getQueryInt(r *http.Request, p params, name string) (interface{}, error) {
 		return nil, errWrongType
 	}
 	res, err := checkValidators(vv, name, p.validators)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func getQueryString(r *http.Request, p params, name string) (interface{}, error) {
+	v := r.URL.Query().Get(name) // we allow not defining it, consider it empty string
+
+	res, err := checkValidators(v, name, p.validators)
 	if err != nil {
 		return nil, err
 	}

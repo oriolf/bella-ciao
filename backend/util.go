@@ -319,3 +319,8 @@ func stringInSlice(s string, l []string) bool {
 	}
 	return false
 }
+
+func decodePager(p par.Values) (limit, offset int) {
+	limit = p.Int("items_per_page")
+	return limit, (p.Int("page") - 1) * limit
+}

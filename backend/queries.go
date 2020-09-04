@@ -266,17 +266,38 @@ func insertFile(db *sql.Tx, file UserFile) error {
 	return err
 }
 
-func getUsers(db *sql.Tx, where string) (users []User, err error) {
-	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, 
+type getUsersResponse struct {
+	Users []User `json:"users"`
+	Total int    `json:"total"`
+}
+
+func getUsers(db *sql.Tx, where, query string, limit, offset int) (response getUsersResponse, err error) {
+	countSQL := fmt.Sprintf("SELECT COUNT(1) FROM users WHERE %s;", where)
+	var total int
+	if query != "" {
+		total, err = countDB(db, countSQL, query)
+	} else {
+		total, err = countDB(db, countSQL)
+	}
+	if err != nil {
+		return getUsersResponse{}, fmt.Errorf("could not count users: %w", err)
+	}
+
+	sql := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, 
 	files.id, files.description, files.name, 
 	messages.id, messages.content, messages.solved
-	FROM (SELECT * FROM users WHERE %s ORDER BY unique_id ASC LIMIT 10 OFFSET 0) AS users 
+	FROM (SELECT * FROM users WHERE %s ORDER BY unique_id ASC LIMIT %d OFFSET %d) AS users 
 	LEFT JOIN files ON users.id=files.user_id 
-	LEFT JOIN messages ON users.id=messages.user_id;`, where)
+	LEFT JOIN messages ON users.id=messages.user_id;`, where, limit, offset)
 
-	res, err := queryDB(db, scanQueriedUser, query)
+	var res []interface{}
+	if query != "" {
+		res, err = queryDB(db, scanQueriedUser, sql, query)
+	} else {
+		res, err = queryDB(db, scanQueriedUser, sql)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("could not query db: %w", err)
+		return getUsersResponse{}, fmt.Errorf("could not query db: %w", err)
 	}
 
 	m := make(map[int]User)
@@ -303,12 +324,13 @@ func getUsers(db *sql.Tx, where string) (users []User, err error) {
 		m[y.ID] = u
 	}
 
+	var users []User
 	for _, x := range m {
 		users = append(users, x)
 	}
 
 	sort.Slice(users, func(i, j int) bool { return users[i].UniqueID < users[j].UniqueID })
-	return users, nil
+	return getUsersResponse{Users: users, Total: total}, nil
 }
 
 func addMessage(db *sql.Tx, m UserMessage) error {
