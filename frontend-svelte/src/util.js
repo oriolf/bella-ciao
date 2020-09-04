@@ -5,14 +5,14 @@ export function sleep(ms) {
 export function extractFormValuesJSON(form) {
     let data = new FormData(form);
     let json = {};
-    data.forEach(function (v, k) {
+    data.forEach(function(v, k) {
         json[k] = v;
     });
     return json;
 }
 
 export function validationFuncs(funcs) {
-    return function (values) {
+    return function(values) {
         let errors = {};
         for (let f of funcs) {
             let errs = f(values);
@@ -27,7 +27,7 @@ export function validationFuncs(funcs) {
 export async function get(url, sortFunc) {
     let res = await fetch(url);
     if (!res.ok) {
-        throw new Error("Could not get files");
+        throw new Error(`Could not get ${url}`);
     }
     let r = (await res.json())
     if (sortFunc) {

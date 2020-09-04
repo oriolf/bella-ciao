@@ -1,6 +1,7 @@
 <script>
   import Loading from "./Loading.svelte";
   import Alert from "./Alert.svelte";
+  import Pagination from "./Pagination.svelte";
   import Button from "./Buttons/Button.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
@@ -30,8 +31,6 @@
   async function validateUser(id) {
     console.log("Validating user...", id);
   }
-
-  getUsers();
 </script>
 
 <style>
@@ -114,6 +113,7 @@
           {/each}
         </div>
       {/each}
+      <Pagination {page} itemsPerPage={10} totalItems={resp.total} />
     {:catch _}
       <Alert type="danger" content={error} />
     {/await}
