@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ type queriedUser struct {
 	Role            string
 	FileID          *int
 	FileDescription *string
+	FileName        *string
 	MessageID       *int
 	MessageContent  *string
 	MessageSolved   *bool
@@ -73,7 +75,7 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 
 func scanQueriedUser(rows *sql.Rows) (interface{}, error) {
 	var u queriedUser
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.FileID, &u.FileDescription, &u.MessageID, &u.MessageContent, &u.MessageSolved)
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.FileID, &u.FileDescription, &u.FileName, &u.MessageID, &u.MessageContent, &u.MessageSolved)
 	return u, err
 }
 
@@ -265,10 +267,12 @@ func insertFile(db *sql.Tx, file UserFile) error {
 }
 
 func getUsers(db *sql.Tx, where string) (users []User, err error) {
-	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, files.id, files.description, messages.id, messages.content, messages.solved
-	FROM users LEFT JOIN files ON users.id=files.user_id 
-	LEFT JOIN messages ON users.id=messages.user_id
-	WHERE %s;`, where)
+	query := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, 
+	files.id, files.description, files.name, 
+	messages.id, messages.content, messages.solved
+	FROM (SELECT * FROM users WHERE %s ORDER BY unique_id ASC LIMIT 10 OFFSET 0) AS users 
+	LEFT JOIN files ON users.id=files.user_id 
+	LEFT JOIN messages ON users.id=messages.user_id;`, where)
 
 	res, err := queryDB(db, scanQueriedUser, query)
 	if err != nil {
@@ -284,11 +288,11 @@ func getUsers(db *sql.Tx, where string) (users []User, err error) {
 
 		u, ok := m[y.ID]
 		if !ok {
-			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name}
+			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name, Email: y.Email}
 		}
-		if y.FileID != nil && y.FileDescription != nil {
+		if y.FileID != nil && y.FileDescription != nil && y.FileName != nil {
 			if missingFile(*y.FileID, u.Files) {
-				u.Files = append(u.Files, UserFile{ID: *y.FileID, Description: *y.FileDescription})
+				u.Files = append(u.Files, UserFile{ID: *y.FileID, Description: *y.FileDescription, Name: *y.FileName})
 			}
 		}
 		if y.MessageID != nil && y.MessageContent != nil && y.MessageSolved != nil {
@@ -303,6 +307,7 @@ func getUsers(db *sql.Tx, where string) (users []User, err error) {
 		users = append(users, x)
 	}
 
+	sort.Slice(users, func(i, j int) bool { return users[i].UniqueID < users[j].UniqueID })
 	return users, nil
 }
 

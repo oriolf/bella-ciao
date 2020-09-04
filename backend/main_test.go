@@ -56,9 +56,9 @@ func TestAPI(t *testing.T) {
 	type m = map[string]interface{}
 	type ms = map[string]string
 	uniqueID1, uniqueID2, uniqueID3, uniqueID4, uniqueID5 := "11111111H", "22222222J", "33333333P", "44444444A", "X1111111G"
-	user2 := newUser("name", "name@example.com", uniqueID2, "12345678")
-	user3 := newUser("name", "name2@example.com", uniqueID3, "12345678")
-	user4 := newUser("name", "name@example.com", uniqueID4, "12345678")
+	user2 := newUser("User 2 name", "name@example.com", uniqueID2, "12345678")
+	user3 := newUser("User 3 name", "name2@example.com", uniqueID3, "12345678")
+	user4 := newUser("User 4 name", "name@example.com", uniqueID4, "12345678")
 	login1 := m{"unique_id": uniqueID1, "password": "12345678"}
 	login2 := m{"unique_id": uniqueID2, "password": "12345678"}
 	login3 := m{"unique_id": uniqueID3, "password": "12345678"}

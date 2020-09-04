@@ -205,7 +205,7 @@ func UploadFile(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, 
 }
 
 func GetUnvalidatedUsers(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
-	return GetUsers(r, w, db, user, p, "users.role == 'none'")
+	return GetUsers(r, w, db, user, p, "users.role = 'none'")
 }
 
 func GetValidatedUsers(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
