@@ -9,8 +9,10 @@
 
   export let url;
   export let error;
+  export let unvalidated;
   let response;
   let page = 1;
+  let itemsPerPage = 10;
   let query = "";
   let timer;
 
@@ -23,13 +25,14 @@
 
   $: getUsers(page, query);
 
-  async function getUsers(page, query) {
-    response = get(`${url}?page=${page}&items_per_page=10&query=${query}`);
-    console.log("USERS:", await response);
+  async function getUsers(pg, qry) {
+    console.log("Calling get users...");
+    response = get(`${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`);
   }
 
   async function validateUser(id) {
-    console.log("Validating user...", id);
+    await fetch(`/api/users/validate?id=${id}`);
+    getUsers(page, query);
   }
 </script>
 
@@ -59,18 +62,23 @@
         <div class="container user-container">
           <div class="row" style="margin-top: 5px;">
             <div class="col-6">
-              <h6>{user.unique_id}</h6>
+              <h6>
+                {user.unique_id}
+                {#if user.role === 'admin'}<em>(admin)</em>{/if}
+              </h6>
               <p>{user.name} <em>({user.email})</em></p>
             </div>
-            <div class="col-3">
-              <Button content="Add message" callback={() => {}} />
-            </div>
-            <div class="col-3">
-              <Button
-                content="Validate"
-                type="success"
-                callback={() => validateUser(user.id)} />
-            </div>
+            {#if unvalidated}
+              <div class="col-3">
+                <Button content="Add message" callback={() => {}} />
+              </div>
+              <div class="col-3">
+                <Button
+                  content="Validate"
+                  type="success"
+                  callback={() => validateUser(user.id)} />
+              </div>
+            {/if}
           </div>
 
           <div class="row">
@@ -88,7 +96,9 @@
                 <DownloadFileButton id={file.id} filename={file.name} />
               </div>
               <div class="col-3">
-                <DeleteFileButton id={file.id} on:executed={getUsers} />
+                <DeleteFileButton
+                  id={file.id}
+                  on:executed={() => getUsers(page, query)} />
               </div>
             </div>
           {/each}
@@ -113,7 +123,7 @@
           {/each}
         </div>
       {/each}
-      <Pagination {page} itemsPerPage={10} totalItems={resp.total} />
+      <Pagination bind:page itemsPerPage={itemsPerPage} totalItems={resp.total} />
     {:catch _}
       <Alert type="danger" content={error} />
     {/await}

@@ -1,11 +1,10 @@
 <script>
-  import Alert from "./Alert.svelte";
-
   export let page;
   export let itemsPerPage;
   export let totalItems;
   let pages;
   let lastPage;
+
   $: generatePagesArray(page);
 
   function generatePagesArray(page) {
@@ -59,14 +58,20 @@
 
   function setPage(n) {
     return function () {
-      page = n;
+      if (n > lastPage) {
+        page = lastPage;
+      } else if (n <= 0) {
+        page = 1;
+      } else {
+        page = n;
+      }
     };
   }
 </script>
 
 <nav aria-label="Page navigation example">
   <ul class="pagination">
-    <li class="page-item" class:disabled={page === 1}>
+    <li class="page-item" class:disabled={page === 1 || totalItems === 0}>
       <a class="page-link" href="." on:click={setPage(page - 1)}>Previous</a>
     </li>
 
@@ -83,7 +88,9 @@
       {/if}
     {/each}
 
-    <li class="page-item" class:disabled={page === lastPage}>
+    <li
+      class="page-item"
+      class:disabled={page === lastPage || totalItems === 0}>
       <a class="page-link" href="." on:click={setPage(page + 1)}>Next</a>
     </li>
   </ul>
