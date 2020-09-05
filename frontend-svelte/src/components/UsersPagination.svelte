@@ -5,7 +5,7 @@
   import Button from "./Buttons/Button.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
-  import { get } from "../util.js";
+  import { get, submitFormJSON } from "../util.js";
 
   export let url;
   export let error;
@@ -15,6 +15,8 @@
   let itemsPerPage = 10;
   let query = "";
   let timer;
+  let userMessageID;
+  let userMessage = "";
 
   const debounce = (v) => {
     clearTimeout(timer);
@@ -27,11 +29,31 @@
 
   async function getUsers(pg, qry) {
     console.log("Calling get users...");
-    response = get(`${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`);
+    response = get(
+      `${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`
+    );
   }
 
   async function validateUser(id) {
     await fetch(`/api/users/validate?id=${id}`);
+    getUsers(page, query);
+  }
+
+  function beginAddMessage(userID) {
+    userMessageID = userID;
+    jQuery("#addMessageModal").on("shown.bs.modal", function () {
+      jQuery("#userMessageInput").trigger("focus");
+    });
+  }
+
+  async function addMessage() {
+    console.log("adding message to", userMessageID, userMessage);
+    await submitFormJSON("/api/users/messages/add", {
+      user_id: userMessageID,
+      content: userMessage,
+    });
+    jQuery("#addMessageModal").modal("hide");
+    userMessage = "";
     getUsers(page, query);
   }
 </script>
@@ -70,7 +92,15 @@
             </div>
             {#if unvalidated}
               <div class="col-3">
-                <Button content="Add message" callback={() => {}} />
+                <button
+                  type="button"
+                  class="align-middle btn btn-sm btn-outline-primary"
+                  style="width: 100%;"
+                  data-toggle="modal"
+                  data-target="#addMessageModal"
+                  on:click={() => beginAddMessage(user.id)}>
+                  Add message
+                </button>
               </div>
               <div class="col-3">
                 <Button
@@ -123,9 +153,44 @@
           {/each}
         </div>
       {/each}
-      <Pagination bind:page itemsPerPage={itemsPerPage} totalItems={resp.total} />
+      <Pagination bind:page {itemsPerPage} totalItems={resp.total} />
     {:catch _}
       <Alert type="danger" content={error} />
     {/await}
+  </div>
+</div>
+
+<!-- Modal -->
+<div
+  class="modal fade"
+  id="addMessageModal"
+  tabindex="-1"
+  role="dialog"
+  aria-labelledby="addMessageModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addMessageModalLabel">Add message</h5>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <textarea
+            id="userMessageInput"
+            class="form-control"
+            rows="3"
+            bind:value={userMessage} />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" on:click={addMessage}>
+          Add message
+        </button>
+      </div>
+    </div>
   </div>
 </div>
