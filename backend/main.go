@@ -92,6 +92,7 @@ var (
 		"/users/validate":        handler(idParams, tokenFuncs(requireLogin, adminUser), ValidateUser),
 
 		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
+		"/candidates/image":  handler(idParams, noLogin, GetCandidateImage),
 		"/candidates/add":    handler(addCandidateParams, tokenFuncs(requireLogin, adminUser), AddCandidate),
 		"/candidates/delete": handler(idParams, tokenFuncs(requireLogin, adminUser), DeleteCandidate),
 

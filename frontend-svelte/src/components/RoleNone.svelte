@@ -1,6 +1,5 @@
 <script>
   import Alert from "./Alert.svelte";
-  import Loading from "./Loading.svelte";
   import Button from "./Buttons/Button.svelte";
   import CardTable from "./CardTable.svelte";
   import Form from "./Form.svelte";

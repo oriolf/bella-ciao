@@ -1,16 +1,17 @@
 <script>
-  // TODO have a different initialize page and avoid calling uninitialized every time
   import Error from "./_error.svelte";
-  import Initialized from "../components/Initialized.svelte";
-  import Uninitialized from "../components/Uninitialized.svelte";
+  import LoginForm from "../components/LoginForm.svelte";
+  import RoleNone from "../components/RoleNone.svelte";
+  import RoleValidated from "../components/RoleValidated.svelte";
+  import RoleAdmin from "../components/RoleAdmin.svelte";
   import Loading from "../components/Loading.svelte";
+  import { user } from "../store.js";
+  import { whoami } from "../util.js";
 
-  let promise = askUninitialized();
-  async function askUninitialized() {
-    let res = await fetch("/api/uninitialized");
-    if (!res.ok) {
-      throw new Error("Already initialized");
-    }
+  let promise = whoami(user);
+  
+  function getUser() {
+    promise = whoami(user);
   }
 </script>
 
@@ -21,7 +22,15 @@
 {#await promise}
   <Loading />
 {:then _}
-  <Uninitialized />
+  {#if $user.role === 'none'}
+    <RoleNone />
+  {:else if $user.role === 'validated'}
+    <RoleValidated />
+  {:else if $user.role === 'admin'}
+    <RoleAdmin />
+  {:else}
+    <p>Unknown user role {$user.role}</p>
+  {/if}
 {:catch _}
-  <Initialized />
+  <LoginForm on:loggedin={getUser} />
 {/await}

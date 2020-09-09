@@ -90,7 +90,28 @@
 {:else}
   <form on:submit={submit} class="needs-validation" novalidate>
     {#each params.fields as field}
-      {#if field.type !== 'file'}
+      {#if field.type === 'file'}
+        <div class="form-group" style="margin-bottom: 10px;">
+          <input
+            on:input={updateValidation}
+            type="file"
+            class="form-control-file"
+            id={field.name}
+            name={field.name}
+            required={field.required} />
+          <div class="invalid-feedback">{field.errString}</div>
+        </div>
+      {:else if field.type === 'textarea'}
+        <textarea
+          on:input={updateValidation}
+          class="form-control"
+          class:is-invalid={errors[field.name]}
+          id={field.name}
+          name={field.name}
+          placeholder={field.hint}
+          required={field.required}
+          rows="3" />
+      {:else}
         <div class="form-group">
           <input
             on:input={updateValidation}
@@ -101,17 +122,6 @@
             aria-describedby={field.name + '_help'}
             placeholder={field.hint}
             type={field.type || 'text'}
-            required={field.required} />
-          <div class="invalid-feedback">{field.errString}</div>
-        </div>
-      {:else}
-        <div class="form-group" style="margin-bottom: 10px;">
-          <input
-            on:input={updateValidation}
-            type="file"
-            class="form-control-file"
-            id={field.name}
-            name={field.name}
             required={field.required} />
           <div class="invalid-feedback">{field.errString}</div>
         </div>

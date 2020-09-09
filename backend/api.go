@@ -274,6 +274,16 @@ func GetCandidates(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *Use
 	return nil
 }
 
+func GetCandidateImage(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
+	candidate, err := getCandidate(db, p.Int("id"))
+	if err != nil {
+		return fmt.Errorf("could not get candidate: %w", err)
+	}
+
+	http.ServeFile(w, &http.Request{URL: &url.URL{}}, filepath.Join(UPLOADS_FOLDER, candidate.Image))
+	return nil
+}
+
 func AddCandidate(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
 	image, filename := p.File("image")
 	f, filename, err := safeCreateFile(UPLOADS_FOLDER, filename)

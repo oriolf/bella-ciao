@@ -5,6 +5,7 @@
   export let segment;
   let links = [
     { segment: undefined, href: ".", name: "Home" },
+    { segment: "candidates", href: "candidates", name: "Candidates" },
     { segment: "faq", href: "faq", name: "FAQ" },
   ];
 
