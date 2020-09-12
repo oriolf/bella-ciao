@@ -72,32 +72,32 @@ var (
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, noLogin, Uninitialized),
 		"/initialize":    handler(initializeParams, noLogin, Initialize),
-		"/config/update": handler(globalConfigParamsAux.End(), tokenFuncs(requireLogin, adminUser), UpdateConfig),
+		"/config/update": handler(globalConfigParamsAux.End(), authFuncs(requireLogin, adminUser), UpdateConfig),
 
-		"/auth/register": handler(registerParams, tokenFuncs(noLogin, validIDFormats), Register),
+		"/auth/register": handler(registerParams, authFuncs(noLogin, validIDFormats), Register),
 		"/auth/login":    handler(loginParams, noLogin, Login),
 		"/auth/logout":   handler(noParams, noLogin, Logout), // TODO test
 
 		"/users/whoami":         handler(noParams, requireLogin, GetSelf), // TODO test
 		"/users/files/own":      handler(noParams, requireLogin, GetOwnFiles),
-		"/users/files/delete":   handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DeleteFile),
-		"/users/files/download": handler(idParams, tokenFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
+		"/users/files/delete":   handler(idParams, authFuncs(requireLogin, fileOwnerOrAdminUser), DeleteFile),
+		"/users/files/download": handler(idParams, authFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
 		"/users/files/upload":   handler(uploadFileParams, requireLogin, UploadFile),
 
-		"/users/unvalidated/get": handler(userListParams, tokenFuncs(requireLogin, adminUser), GetUnvalidatedUsers),
-		"/users/validated/get":   handler(userListParams, tokenFuncs(requireLogin, adminUser), GetValidatedUsers),
-		"/users/messages/add":    handler(addMessageParams, tokenFuncs(requireLogin, adminUser), AddMessage),
+		"/users/unvalidated/get": handler(userListParams, authFuncs(requireLogin, adminUser), GetUnvalidatedUsers),
+		"/users/validated/get":   handler(userListParams, authFuncs(requireLogin, adminUser), GetValidatedUsers),
+		"/users/messages/add":    handler(addMessageParams, authFuncs(requireLogin, adminUser), AddMessage),
 		"/users/messages/own":    handler(noParams, requireLogin, GetOwnMessages),
-		"/users/messages/solve":  handler(idParams, tokenFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
-		"/users/validate":        handler(idParams, tokenFuncs(requireLogin, adminUser), ValidateUser),
+		"/users/messages/solve":  handler(idParams, authFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
+		"/users/validate":        handler(idParams, authFuncs(requireLogin, adminUser), ValidateUser),
 
 		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
 		"/candidates/image":  handler(idParams, noLogin, GetCandidateImage),
-		"/candidates/add":    handler(addCandidateParams, tokenFuncs(requireLogin, adminUser), AddCandidate),
-		"/candidates/delete": handler(idParams, tokenFuncs(requireLogin, adminUser), DeleteCandidate),
+		"/candidates/add":    handler(addCandidateParams, authFuncs(requireLogin, adminUser), AddCandidate),
+		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser), DeleteCandidate),
 
 		"/elections/get":     handler(noParams, noLogin, GetElections),
-		"/elections/publish": handler(idParams, tokenFuncs(requireLogin, adminUser), PublishElection),
+		"/elections/publish": handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
 		// TODO implement /elections/update, test only valid params are accepted
 		// TODO implement and test /elections/vote, etc.
 	}
@@ -175,7 +175,7 @@ func getInitialized() bool {
 
 func handler(
 	paramsFunc func(*http.Request) (par.Values, error),
-	tokenFunc func(*sql.Tx, *User, par.Values, error) error,
+	authFunc func(*sql.Tx, *User, par.Values, error) error,
 	handleFunc func(*http.Request, http.ResponseWriter, *sql.Tx, *User, par.Values) error,
 ) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -224,8 +224,8 @@ func handler(
 		}
 
 		user, err := getRequestUser(r, w, tx)
-		if err := tokenFunc(tx, user, params, err); err != nil { // token func validates permissions too
-			log.Printf("[%d] Error validating token: %s\n", n, err)
+		if err := authFunc(tx, user, params, err); err != nil { // auth func validates permissions too
+			log.Printf("[%d] Error during authorization: %s\n", n, err)
 			rollback(n, tx)
 			http.Error(w, "", http.StatusUnauthorized)
 			return
@@ -252,7 +252,7 @@ func rollback(n uint64, tx *sql.Tx) {
 	}
 }
 
-func tokenFuncs(fs ...func(*sql.Tx, *User, par.Values, error) error) func(*sql.Tx, *User, par.Values, error) error {
+func authFuncs(fs ...func(*sql.Tx, *User, par.Values, error) error) func(*sql.Tx, *User, par.Values, error) error {
 	return func(db *sql.Tx, user *User, values par.Values, err error) error {
 		for _, f := range fs {
 			err = f(db, user, values, err)

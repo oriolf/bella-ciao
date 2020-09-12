@@ -2,11 +2,15 @@ export function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function extractFormValuesJSON(form) {
+export function extractFormValuesJSON(form, multiselectFields) {
     let data = new FormData(form)
     let json = {}
     data.forEach(function(v, k) {
-        json[k] = v
+        if (multiselectFields && multiselectFields.includes(k)) {
+            json[k] = data.getAll(k)
+        } else {
+            json[k] = v
+        }
     })
     return json
 }
@@ -15,7 +19,7 @@ export function validationFuncs(funcs) {
     return function(values) {
         let errors = {}
         for (let f of funcs) {
-            let errs = f(values)
+            let errs = f(values);
             for (var k in errs) {
                 errors[k] = errs[k]
             }
@@ -79,4 +83,13 @@ export function sortByField(field) {
 
 export function formatDate(s) {
     return new Date(s).toLocaleString()
+}
+
+export function validateArrayLengthPositive(name) {
+    return function(values) {
+        if (!values[name] || values[name].length === 0) {
+            return {
+                [name]: "error" };
+        }
+    }
 }

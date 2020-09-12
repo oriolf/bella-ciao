@@ -28,7 +28,6 @@
   $: getUsers(page, query);
 
   async function getUsers(pg, qry) {
-    console.log("Calling get users...");
     response = get(
       `${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`
     );
@@ -47,7 +46,6 @@
   }
 
   async function addMessage() {
-    console.log("adding message to", userMessageID, userMessage);
     await submitFormJSON("/api/users/messages/add", {
       user_id: userMessageID,
       content: userMessage,

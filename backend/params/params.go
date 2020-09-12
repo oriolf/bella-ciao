@@ -499,6 +499,15 @@ func UpperCase(i interface{}) (interface{}, error) {
 	return strings.ToUpper(v), nil
 }
 
+func LowerCase(i interface{}) (interface{}, error) {
+	v, ok := i.(string)
+	if !ok {
+		return i, errWrongType
+	}
+
+	return strings.ToLower(v), nil
+}
+
 func Email(i interface{}) (interface{}, error) {
 	v, ok := i.(string)
 	if !ok {
@@ -509,7 +518,7 @@ func Email(i interface{}) (interface{}, error) {
 	if err != nil {
 		return i, err
 	}
-	v = addr.Address
+	v = strings.ToLower(addr.Address)
 
 	return v, nil
 }

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/oriolf/bella-ciao/params"
 	"golang.org/x/crypto/scrypt"
@@ -177,8 +178,8 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 }
 
 func validateElectionParams(v par.Values) error {
-	start, end := v.Time("start"), v.Time("end")
-	if start.After(end) || end.Before(start) {
+	start, end, now := v.Time("start"), v.Time("end"), time.Now()
+	if start.After(end) || end.Before(start) || start.Before(now) {
 		return errors.New("election should end after it starts")
 	}
 
