@@ -17,15 +17,12 @@ import (
 
 var (
 	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
-	store      = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
-	queryCount uint64
+	store         = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
+	queryCount    uint64
+	globalTesting bool
 
 	idParams = par.P("query").Int("id", par.PositiveInt).End()
 	noParams = par.None()
-
-	loginParams = par.P("json").
-			String("unique_id", par.NonEmpty).
-			String("password", par.NonEmpty).End()
 
 	registerParamsAux = par.P("json").
 				String("name", par.NonEmpty).
@@ -33,24 +30,6 @@ var (
 				Email("email").
 				String("password", par.MinLength(MIN_PASSWORD_LENGTH))
 	registerParams = registerParamsAux.End()
-
-	addMessageParams = par.P("json").
-				Int("user_id", par.PositiveInt).
-				String("content", par.NonEmpty).End()
-
-	uploadFileParams = par.P("form").
-				File("file").
-				String("description", par.NonEmpty).End()
-
-	userListParams = par.P("query").
-			Int("page", par.PositiveInt).
-			Int("items_per_page", par.PositiveInt).
-			String("query").End()
-
-	addCandidateParams = par.P("form").
-				File("image").
-				String("name", par.NonEmpty).
-				String("presentation", par.NonEmpty).End()
 
 	electionParamsAux = par.P("json").
 				String("name", par.NonEmpty).
@@ -68,6 +47,31 @@ var (
 				JSON("admin", registerParamsAux.EndJSON()).
 				JSON("election", electionParamsAux.EndJSON()).
 				JSON("config", globalConfigParamsAux.EndJSON()).End()
+
+	loginParams = par.P("json").
+			String("unique_id", par.NonEmpty).
+			String("password", par.NonEmpty).End()
+
+	uploadFileParams = par.P("form").
+				File("file").
+				String("description", par.NonEmpty).End()
+
+	userListParams = par.P("query").
+			Int("page", par.PositiveInt).
+			Int("items_per_page", par.PositiveInt).
+			String("query").End()
+
+	addMessageParams = par.P("json").
+				Int("user_id", par.PositiveInt).
+				String("content", par.NonEmpty).End()
+
+	addCandidateParams = par.P("form").
+				File("image").
+				String("name", par.NonEmpty).
+				String("presentation", par.NonEmpty).End()
+
+	voteParams = par.P("json").
+			IntList("candidates").End()
 
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, noLogin, Uninitialized),
@@ -91,15 +95,21 @@ var (
 		"/users/messages/solve":  handler(idParams, authFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
 		"/users/validate":        handler(idParams, authFuncs(requireLogin, adminUser), ValidateUser),
 
-		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
-		"/candidates/image":  handler(idParams, noLogin, GetCandidateImage),
+		"/candidates/get":   handler(noParams, noLogin, GetCandidates),
+		"/candidates/image": handler(idParams, noLogin, GetCandidateImage),
+		// TODO test candidates can't be added or deleted after the election has begun
 		"/candidates/add":    handler(addCandidateParams, authFuncs(requireLogin, adminUser), AddCandidate),
 		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser), DeleteCandidate),
 
 		"/elections/get":     handler(noParams, noLogin, GetElections),
 		"/elections/publish": handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
+		"/elections/vote":    handler(voteParams, authFuncs(requireLogin, validatedUser), CastVote),
+		// TODO providing the hash you should see which candidates were voted and in which order
+		//"/elections/vote/check": handler(checkVoteParams, noLogin, CheckVote),
+		// TODO every minute it should be checked if an election has to be counted its results
+		// TODO if the election has its results counted, then return those results
+		//"/elections/result": handler(idParams, authFuncs(requireLogin, validatedUser), ElectionResults),
 		// TODO implement /elections/update, test only valid params are accepted
-		// TODO implement and test /elections/vote, etc.
 	}
 
 	initialized struct {

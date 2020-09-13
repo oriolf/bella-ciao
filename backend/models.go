@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -17,6 +16,7 @@ type User struct {
 	Password string `json:"-"`
 	Salt     string `json:"-"`
 	Role     string `json:"role"`
+	HasVoted bool   `json:"has_voted"`
 
 	Files    []UserFile    `json:"files"`
 	Messages []UserMessage `json:"messages"`
@@ -30,7 +30,8 @@ func (u User) CreateTableQuery() string {
 		email text UNIQUE NOT NULL,
 		password TEXT NOT NULL,
 		salt TEXT NOT NULL,
-		role TEXT NOT NULL
+		role TEXT NOT NULL,
+		has_voted BOOLEAN NOT NULL DEFAULT 0
 	);`
 }
 
@@ -130,7 +131,7 @@ type Vote struct {
 	Hash       string `json:"hash"`
 	Candidates []int  `json:"candidates"`
 
-	CandidatesString json.RawMessage `json:"-"`
+	CandidatesString string `json:"-"`
 }
 
 func (v Vote) CreateTableQuery() string {

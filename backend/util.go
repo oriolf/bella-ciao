@@ -58,6 +58,14 @@ func requireLogin(db *sql.Tx, user *User, values par.Values, err error) error {
 	return err
 }
 
+func validatedUser(db *sql.Tx, user *User, values par.Values, err error) error {
+	if user.Role == ROLE_NONE {
+		return errors.New("none role")
+	}
+
+	return nil
+}
+
 func adminUser(db *sql.Tx, user *User, values par.Values, err error) error {
 	if user.Role != ROLE_ADMIN {
 		return errors.New("non admin role")
@@ -178,7 +186,7 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 }
 
 func validateElectionParams(v par.Values) error {
-	start, end, now := v.Time("start"), v.Time("end"), time.Now()
+	start, end, now := v.Time("start"), v.Time("end"), now()
 	if start.After(end) || end.Before(start) || start.Before(now) {
 		return errors.New("election should end after it starts")
 	}
@@ -324,4 +332,16 @@ func stringInSlice(s string, l []string) bool {
 func decodePager(p par.Values) (limit, offset int) {
 	limit = p.Int("items_per_page")
 	return limit, (p.Int("page") - 1) * limit
+}
+
+func now() time.Time {
+	if !globalTesting {
+		return time.Now()
+	}
+
+	return NOW_TEST_TIME
+}
+
+func timeTravel(d time.Duration) {
+	NOW_TEST_TIME = NOW_TEST_TIME.Add(d)
 }

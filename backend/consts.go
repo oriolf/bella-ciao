@@ -30,7 +30,8 @@ const (
 )
 
 var (
-	SQLITE_TIME_FORMAT = ""
+	SQLITE_TIME_FORMAT string
+	NOW_TEST_TIME      time.Time
 
 	COUNT_METHODS       = []string{COUNT_BORDA, COUNT_DOWDALL}
 	ID_VALIDATION_FUNCS = map[string]func(string) error{
@@ -43,4 +44,5 @@ var (
 
 func init() {
 	SQLITE_TIME_FORMAT = strings.Replace(time.RFC3339Nano, "T", " ", 1)
+	NOW_TEST_TIME = time.Now()
 }

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/oriolf/bella-ciao/params"
 )
@@ -338,6 +339,62 @@ func GetElections(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User
 func PublishElection(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
 	if err := publishElection(db, p.Int("id")); err != nil {
 		return fmt.Errorf("could not delete candidate: %w", err)
+	}
+
+	return nil
+}
+
+func CastVote(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
+	elections, err := getElections(db, true)
+	if err != nil {
+		return fmt.Errorf("could not get elections: %w", err)
+	}
+
+	if len(elections) != 1 {
+		return errors.New("expected just one election")
+	}
+
+	e := elections[0]
+	if now().Before(e.Start) || now().After(e.End) {
+		return errors.New("out of election vote time")
+	}
+
+	if user.HasVoted {
+		return errors.New("user has already voted")
+	}
+
+	candidates := p.IntList("candidates")
+	if len(candidates) < e.MinCandidates || len(candidates) > e.MaxCandidates {
+		return errors.New("less than min or more than max candidates")
+	}
+
+	availableCandidates, err := getAvailableCandidates(db, e.ID)
+	if err != nil {
+		return fmt.Errorf("could not get available candidates: %w", err)
+	}
+
+	for _, c := range candidates {
+		if _, ok := availableCandidates[c]; !ok {
+			return errors.New("trying to vote unexistent candidate")
+		}
+	}
+
+	voteHash, err := SafeID()
+	if err != nil {
+		return fmt.Errorf("could not generate vote hash: %w", err)
+	}
+
+	if err := setUserVoted(db, user.ID); err != nil {
+		return fmt.Errorf("could not set user voted: %w", err)
+	}
+
+	time.Sleep(time.Second) // TODO remove when ensured same user can only vote once
+	if err := insertVote(db, candidates, voteHash); err != nil {
+		return fmt.Errorf("could not insert vote: %w", err)
+	}
+
+	if err := WriteResult(w, voteHash); err != nil {
+		return fmt.Errorf("could not write response: %w", err)
 	}
 
 	return nil

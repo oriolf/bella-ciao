@@ -58,6 +58,10 @@ func (p params) StringList(name string, validators ...func(interface{}) (interfa
 	return p.newParam("string_list", name, validators...)
 }
 
+func (p params) IntList(name string, validators ...func(interface{}) (interface{}, error)) params {
+	return p.newParam("int_list", name, validators...)
+}
+
 func (p params) File(name string) params {
 	return p.newParam("file", name)
 }
@@ -197,6 +201,29 @@ func (p params) endJsonParamsAux(m map[string]interface{}) (Values, error) {
 					return nil, errWrongType
 				}
 				sl = append(sl, y)
+			}
+
+			res, err := checkValidators(sl, name, p.validators)
+			if err != nil {
+				return nil, err
+			}
+			vals[name] = res
+		case "int_list":
+			v, ok := m[name]
+			if !ok {
+				return nil, errMissingParameter
+			}
+			l, ok := v.([]interface{})
+			if !ok {
+				return nil, errWrongType
+			}
+			var sl []int
+			for _, x := range l {
+				y, ok := x.(float64)
+				if !ok {
+					return nil, errWrongType
+				}
+				sl = append(sl, int(y))
 			}
 
 			res, err := checkValidators(sl, name, p.validators)
@@ -385,7 +412,21 @@ func (v Values) StringList(name string) []string {
 
 	l, ok := x.([]string)
 	if !ok {
-		panic(fmt.Sprintf("asked for wrong type, expected string, got %T", x))
+		panic(fmt.Sprintf("asked for wrong type, expected string slice, got %T", x))
+	}
+
+	return l
+}
+
+func (v Values) IntList(name string) []int {
+	x, ok := v[name]
+	if !ok {
+		panic(fmt.Sprintf("asked for unknown name %q", name))
+	}
+
+	l, ok := x.([]int)
+	if !ok {
+		panic(fmt.Sprintf("asked for wrong type, expected int slice, got %T", x))
 	}
 
 	return l

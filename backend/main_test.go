@@ -57,6 +57,7 @@ type expectedFile struct {
 // TODO test user pagination properly
 func TestAPI(t *testing.T) {
 	bootstrap()
+	globalTesting = true
 
 	type to = testOptions
 	type m = map[string]interface{}
@@ -82,31 +83,31 @@ func TestAPI(t *testing.T) {
 
 	admin := newUser("admin", "admin@example.com", "21111111H", "12345678")
 	appConfig := m{"id_formats": []string{ID_DNI}}
-	electionStart, electionEnd := time.Now().Add(1*time.Hour), time.Now().Add(2*time.Hour)
+	electionStart, electionEnd := now().Add(1*time.Hour), now().Add(2*time.Hour)
 
 	// wrong admin unique id
-	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
+	election := newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 3)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// wrong election start and end
 	admin["unique_id"] = uniqueID1
-	election = newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 5)
+	election = newElection("election", COUNT_BORDA, electionEnd, electionStart, 2, 3)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// wrong election min and max candidates
-	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 5, 2)
+	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 3, 2)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// wrong count method
-	election = newElection("election", "invalid_count", electionStart, electionEnd, 2, 5)
+	election = newElection("election", "invalid_count", electionStart, electionEnd, 2, 3)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": appConfig}}))
 
 	// empty id formats list
-	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 5)
+	election = newElection("election", COUNT_BORDA, electionStart, electionEnd, 2, 3)
 	t.Run("Empty site cannot be initialized with wrong parameters",
 		testEndpoint("/initialize", 400, to{method: "POST", params: m{"admin": admin, "election": election, "config": m{"id_formats": []string{}}}}))
 
@@ -338,6 +339,35 @@ func TestAPI(t *testing.T) {
 	election.Public = true
 	t.Run("Non-logged user should be able to see elections",
 		testEndpoint("/elections/get", 200, to{expectedElections: []Election{election}}))
+
+	// TODO candidates should not be created when election already started
+	// more candidates for the election
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
+
+	t.Run("Admin user should not be able to vote before election start",
+		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
+	timeTravel(90 * time.Minute)
+
+	t.Run("Admin user should be able to vote in time",
+		testEndpoint("/elections/vote", 200, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
+	t.Run("Admin user should not be able to vote twice",
+		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
+
+	t.Run("Unvalidated user should not be able to vote",
+		testEndpoint("/elections/vote", 401, to{cookies: cookies3, params: m{"candidates": []int{1, 3}}}))
+	t.Run("Validated user should not be able to vote more than the maximum allowed candidates",
+		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{1, 3, 4, 5}}}))
+	t.Run("Validated user should not be able to vote less than the minimum allowed candidates",
+		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{1}}}))
+	t.Run("Validated user should not be able to vote unexisting candidates",
+		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{-1, -2}}}))
+
+	// TODO validated user tries to vote twice at the same time, check only one of the two goes through (race condition)
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {

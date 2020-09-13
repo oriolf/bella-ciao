@@ -17,6 +17,7 @@ type queriedUser struct {
 	Name            string
 	Email           string
 	Role            string
+	HasVoted        bool
 	FileID          *int
 	FileDescription *string
 	FileName        *string
@@ -75,7 +76,7 @@ func scanCandidate(rows *sql.Rows) (interface{}, error) {
 
 func scanQueriedUser(rows *sql.Rows) (interface{}, error) {
 	var u queriedUser
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.FileID, &u.FileDescription, &u.FileName, &u.MessageID, &u.MessageContent, &u.MessageSolved)
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.HasVoted, &u.FileID, &u.FileDescription, &u.FileName, &u.MessageID, &u.MessageContent, &u.MessageSolved)
 	return u, err
 }
 
@@ -87,7 +88,7 @@ func scanCount(rows *sql.Rows) (interface{}, error) {
 
 func scanUser(rows *sql.Rows) (interface{}, error) {
 	var u User
-	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role)
+	err := rows.Scan(&u.ID, &u.UniqueID, &u.Name, &u.Email, &u.Role, &u.HasVoted)
 	return u, err
 }
 
@@ -101,6 +102,12 @@ func scanUserMessage(rows *sql.Rows) (interface{}, error) {
 	var m UserMessage
 	err := rows.Scan(&m.ID, &m.Content, &m.Solved)
 	return m, err
+}
+
+func scanID(rows *sql.Rows) (interface{}, error) {
+	var id int
+	err := rows.Scan(&id)
+	return id, err
 }
 
 // helpers
@@ -192,10 +199,12 @@ func execConfig(db *sql.Tx, c Config, query, action string) error {
 	if err != nil {
 		return fmt.Errorf("could not marshal id formats: %w", err)
 	}
+
 	_, err = db.Exec(query, string(b))
 	if err != nil {
 		return fmt.Errorf("could not %s config: %w", action, err)
 	}
+
 	return nil
 }
 
@@ -211,15 +220,15 @@ func getConfig(db *sql.Tx) (c Config, err error) {
 }
 
 func getUser(db *sql.Tx, userID int) (user User, err error) {
-	err = db.QueryRow("SELECT unique_id, name, email, password, salt, role FROM users WHERE id=?;", userID).Scan(
-		&user.UniqueID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)
+	err = db.QueryRow("SELECT unique_id, name, email, password, salt, role, has_voted FROM users WHERE id=?;", userID).Scan(
+		&user.UniqueID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role, &user.HasVoted)
 	user.ID = userID
 	return user, err
 }
 
 func getUserFromUniqueID(db *sql.Tx, uniqueID string) (user User, err error) {
-	err = db.QueryRow("SELECT id, name, email, password, salt, role FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role)
+	err = db.QueryRow("SELECT id, name, email, password, salt, role, has_voted FROM users WHERE unique_id LIKE ?;", uniqueID).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Password, &user.Salt, &user.Role, &user.HasVoted)
 	user.UniqueID = uniqueID
 	return user, err
 }
@@ -283,7 +292,7 @@ func getUsers(db *sql.Tx, where, query string, limit, offset int) (response getU
 		return getUsersResponse{}, fmt.Errorf("could not count users: %w", err)
 	}
 
-	sql := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, 
+	sql := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, users.has_voted,
 	files.id, files.description, files.name, 
 	messages.id, messages.content, messages.solved
 	FROM (SELECT * FROM users WHERE %s ORDER BY unique_id ASC LIMIT %d OFFSET %d) AS users 
@@ -309,7 +318,7 @@ func getUsers(db *sql.Tx, where, query string, limit, offset int) (response getU
 
 		u, ok := m[y.ID]
 		if !ok {
-			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name, Email: y.Email}
+			u = User{ID: y.ID, UniqueID: y.UniqueID, Name: y.Name, Email: y.Email, HasVoted: y.HasVoted}
 		}
 		if y.FileID != nil && y.FileDescription != nil && y.FileName != nil {
 			if missingFile(*y.FileID, u.Files) {
@@ -377,6 +386,19 @@ func validateUser(db *sql.Tx, userID int) error {
 func getCandidates(db *sql.Tx, electionID int) ([]interface{}, error) {
 	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
+}
+
+func getAvailableCandidates(db *sql.Tx, electionID int) (map[int]struct{}, error) {
+	res, err := queryDB(db, scanID, `SELECT id FROM candidates WHERE election_id = ?;`, electionID)
+	if err != nil {
+		return nil, fmt.Errorf("could not select candidate's ids: %w", err)
+	}
+	m := make(map[int]struct{}, len(res))
+	for _, x := range res {
+		m[x.(int)] = struct{}{}
+	}
+
+	return m, nil
 }
 
 func getCandidate(db *sql.Tx, candidateID int) (Candidate, error) {
@@ -462,6 +484,38 @@ func publishElection(db *sql.Tx, electionID int) error {
 	return nil
 }
 
+func setUserVoted(db *sql.Tx, userID int) error {
+	res, err := db.Exec("UPDATE users SET has_voted=1 WHERE has_voted=0 AND id=?;", userID)
+	if err != nil {
+		return fmt.Errorf("could not execute update: %w", err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("could not count rows affected: %w", err)
+	}
+
+	if n != 1 {
+		return errors.New("user already voted")
+	}
+
+	return nil
+}
+
+func insertVote(db *sql.Tx, candidates []int, hash string) error {
+	b, err := json.Marshal(candidates)
+	if err != nil {
+		return fmt.Errorf("could not marshal candidates: %w", err)
+	}
+
+	_, err = db.Exec("INSERT INTO votes (hash, candidates) VALUES (?, ?);", hash, string(b))
+	if err != nil {
+		return fmt.Errorf("could not insert vote: %w", err)
+	}
+
+	return nil
+}
+
 // params check queries
 
 func checkFileOwnedByUser(db *sql.Tx, fileID, userID int) error {
@@ -487,7 +541,7 @@ func resourceOwnedByUser(db *sql.Tx, resourceName string, resourceID, userID int
 // test checks queries
 
 func getAllUsers(db *sql.Tx) (users []User, err error) {
-	query := "SELECT id, unique_id, name, email, role FROM users;"
+	query := "SELECT id, unique_id, name, email, role, has_voted FROM users;"
 	res, err := queryDB(db, scanUser, query)
 	if err != nil {
 		return nil, fmt.Errorf("could not query db: %w", err)
