@@ -39,10 +39,10 @@
     let form = event.target.form;
     const values = extractFormValuesJSON(form, multiselectFields);
     errors = valFuncs(values);
-    updateValidationAux(form, values, errors);
+    updateValidationAux(form, errors);
   }
 
-  function updateValidationAux(form, values, errors) {
+  function updateValidationAux(form, errors) {
     for (let el of form.elements) {
       if (errors[el.name]) {
         el.setCustomValidity(errors[el.name]);
@@ -69,7 +69,7 @@
     errors = valFuncs(values);
     form.classList.add("was-validated");
     wasValidated = true;
-    if (!updateValidationAux(form, values, errors)) {
+    if (!updateValidationAux(form, errors)) {
       return;
     }
 

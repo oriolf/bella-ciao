@@ -1,5 +1,4 @@
 <script>
-  import Error from "./_error.svelte";
   import LoginForm from "../components/LoginForm.svelte";
   import RoleNone from "../components/RoleNone.svelte";
   import RoleValidated from "../components/RoleValidated.svelte";

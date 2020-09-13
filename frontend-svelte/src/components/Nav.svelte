@@ -1,5 +1,4 @@
 <script>
-  import { goto } from "@sapper/app";
   import { user } from "../store.js";
 
   export let segment;
