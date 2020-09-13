@@ -4,6 +4,7 @@
     "exclude": ["node_modules/*", "__sapper__/*", "public/*"],
     "compilerOptions": {
         "types": ["svelte", "node", "@sapper"],
+        "target": "es2017",
         "typeRoots": ["typings"]
     }
 }

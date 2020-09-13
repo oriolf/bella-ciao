@@ -1,6 +1,6 @@
 <script>
-  import { user } from "../store.js";
-  import { whoami } from "../util.js";
+  import { user } from "../store";
+  import { whoami } from "../util";
   import CandidatesList from "../components/CandidatesList.svelte";
   import CandidateForm from "../components/CandidateForm.svelte";
 

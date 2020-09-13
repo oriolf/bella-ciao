@@ -1,7 +1,7 @@
 <script>
   import Form from "./Form.svelte";
   import { COUNT_METHODS, ID_FORMATS } from "../constants.js";
-  import { validateArrayLengthPositive } from "../util.js";
+  import { validateArrayLengthPositive } from "../util.ts";
 
   function siteInitialized() {
     window.location = "/";

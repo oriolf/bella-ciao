@@ -2,7 +2,7 @@
   import CardTable from "./CardTable.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
-  import { get, sortByField } from "../util.js";
+  import { get, sortByField } from "../util.ts";
 
   let files;
   export let reloadFiles = 0;

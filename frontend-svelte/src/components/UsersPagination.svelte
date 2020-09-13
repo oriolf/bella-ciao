@@ -5,7 +5,7 @@
   import Button from "./Buttons/Button.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
-  import { get, submitFormJSON } from "../util.js";
+  import { get, submitFormJSON } from "../util.ts";
 
   export let url;
   export let error;

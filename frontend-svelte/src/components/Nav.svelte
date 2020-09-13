@@ -1,7 +1,7 @@
-<script>
-  import { user } from "../store.js";
+<script lang="ts">
+  import { user } from "../store";
 
-  export let segment;
+  export let segment: string;
   let links = [
     { segment: undefined, href: ".", name: "Home" },
     { segment: "candidates", href: "candidates", name: "Candidates" },
@@ -11,7 +11,7 @@
   async function logout() {
     await fetch("/api/auth/logout");
     user.set(null);
-    window.location = "/";
+    window.location.href = "/";
   }
 </script>
 

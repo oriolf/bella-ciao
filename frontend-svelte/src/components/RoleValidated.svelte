@@ -1,7 +1,7 @@
 <script>
   import UserFiles from "./UserFiles.svelte";
   import Alert from "./Alert.svelte";
-  import { get, formatDate } from "../util.js";
+  import { get, formatDate } from "../util.ts";
 
   let promise;
   getElection();

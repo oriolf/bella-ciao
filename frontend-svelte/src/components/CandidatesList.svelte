@@ -1,23 +1,24 @@
-<script>
-  import { get } from "../util.js";
+<script lang="ts">
+  import { get } from "../util";
   import Alert from "./Alert.svelte";
   import Loading from "./Loading.svelte";
   import Button from "./Buttons/Button.svelte";
+  import type { Candidate } from "../types/models.type";
 
-  let promise;
-  export let reloadCandidates;
-  export let admin;
+  let promise: Promise<Candidate[]>;
+  export let reloadCandidates: number;
+  export let admin: boolean;
 
   $: getCandidates(reloadCandidates);
 
-  getCandidates();
-  function getCandidates() {
-    promise = get("/api/candidates/get");
+  getCandidates(reloadCandidates);
+  function getCandidates(_: number) {
+    promise = get("/api/candidates/get", null) as Promise<Candidate[]>;
   }
 
-  async function deleteCandidate(id) {
+  async function deleteCandidate(id: number) {
     await fetch(`/api/candidates/delete?id=${id}`);
-    getCandidates();
+    getCandidates(reloadCandidates);
   }
 </script>
 

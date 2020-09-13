@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
   import LoginForm from "../components/LoginForm.svelte";
   import RoleNone from "../components/RoleNone.svelte";
   import RoleValidated from "../components/RoleValidated.svelte";
   import RoleAdmin from "../components/RoleAdmin.svelte";
   import Loading from "../components/Loading.svelte";
-  import { user } from "../store.js";
-  import { whoami } from "../util.js";
+  import { user } from "../store";
+  import { whoami } from "../util";
 
   let promise = whoami(user);
   

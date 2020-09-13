@@ -4,7 +4,7 @@
   import CardTable from "./CardTable.svelte";
   import Form from "./Form.svelte";
   import UserFiles from "./UserFiles.svelte";
-  import { get, sortByField } from "../util.js";
+  import { get, sortByField } from "../util";
 
   let messages;
   let reloadFiles = 0;

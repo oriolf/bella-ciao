@@ -76,12 +76,15 @@ export default {
             svelte({
                 generate: 'ssr',
                 hydratable: true,
-                dev
+                dev,
+                preprocess: autoPreprocess()
             }),
             resolve({
                 dedupe: ['svelte']
             }),
-            commonjs()
+            commonjs(),
+            typescript({ sourceMap: dev }),
+
         ],
         external: Object.keys(pkg.dependencies).concat(require('module').builtinModules),
 

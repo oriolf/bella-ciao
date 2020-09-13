@@ -1,10 +1,10 @@
-<script>
+<script lang="ts">
   import Loading from "../Loading.svelte";
 
-  export let content;
-  export let callback;
-  export let type = "primary";
-  let promise;
+  export let content: string;
+  export let callback: () => Promise<any>;
+  export let type: string = "primary";
+  let promise: Promise<any>;
   let classes = `align-middle btn btn-sm btn-outline-${type}`;
 
   function handleClick() {

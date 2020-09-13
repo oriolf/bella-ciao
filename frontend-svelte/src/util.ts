@@ -1,10 +1,13 @@
-export function sleep(ms) {
+import type { Writable } from "svelte/store";
+import type { User, SortFunc, JsonValue, JsonFunc } from "./types/models.type";
+
+export function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-export function extractFormValuesJSON(form, multiselectFields) {
+export function extractFormValuesJSON(form: HTMLFormElement, multiselectFields: string[]) {
     let data = new FormData(form)
-    let json = {}
+    let json = {};
     data.forEach(function(v, k) {
         if (multiselectFields && multiselectFields.includes(k)) {
             json[k] = data.getAll(k)
@@ -28,15 +31,15 @@ export function validationFuncs(funcs) {
     }
 }
 
-export async function whoami(user) {
+export async function whoami(user: Writable<User>) {
     let res = await fetch('/api/users/whoami')
     if (!res.ok) {
         throw new Error('Not logged in')
     }
-    user.set(await res.json())
+    user.set(await res.json() as User)
 }
 
-export async function get(url, sortFunc) {
+export async function get(url: string, sortFunc: null | SortFunc) {
     let res = await fetch(url)
     if (!res.ok) {
         throw new Error(`Could not get ${url}`)
@@ -48,7 +51,7 @@ export async function get(url, sortFunc) {
     return r
 }
 
-export async function submitForm(url, form) {
+export async function submitForm(url: string, form: HTMLFormElement) {
     return await fetch(url, {
         method: 'POST',
         // do not set content type so client detects and sets appropriate content-type and boundary: https://stackoverflow.com/questions/39280438/fetch-missing-boundary-in-multipart-form-data-post
@@ -57,7 +60,7 @@ export async function submitForm(url, form) {
     })
 }
 
-export async function submitFormJSON(url, values, jsonFunc) {
+export async function submitFormJSON(url: string, values: JsonValue, jsonFunc: undefined | JsonFunc) {
     if (jsonFunc !== undefined) {
         values = jsonFunc(values)
     }
@@ -70,7 +73,7 @@ export async function submitFormJSON(url, values, jsonFunc) {
     })
 }
 
-export function sortByField(field) {
+export function sortByField(field: string): SortFunc {
     return (a, b) => {
         if (a[field] < b[field]) {
             return -1
@@ -81,12 +84,12 @@ export function sortByField(field) {
     }
 }
 
-export function formatDate(s) {
+export function formatDate(s: string): string {
     return new Date(s).toLocaleString()
 }
 
-export function validateArrayLengthPositive(name) {
-    return function(values) {
+export function validateArrayLengthPositive(name: string) {
+    return function(values: JsonValue) {
         if (!values[name] || values[name].length === 0) {
             return {
                 [name]: "error" };
