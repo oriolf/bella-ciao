@@ -340,7 +340,6 @@ func TestAPI(t *testing.T) {
 	t.Run("Non-logged user should be able to see elections",
 		testEndpoint("/elections/get", 200, to{expectedElections: []Election{election}}))
 
-	// TODO candidates should not be created when election already started
 	// more candidates for the election
 	t.Run("Admin users should be able to add candidates",
 		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
@@ -352,6 +351,11 @@ func TestAPI(t *testing.T) {
 	t.Run("Admin user should not be able to vote before election start",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
 	timeTravel(90 * time.Minute)
+
+	t.Run("Candidates should not be added after election starts",
+		testEndpoint("/candidates/add", 401, to{cookies: cookies1, candidate: candidate1}))
+	t.Run("Candidates should not be deleted after election starts",
+		testEndpoint("/candidates/delete", 401, to{cookies: cookies1, query: "?id=1"}))
 
 	t.Run("Admin user should be able to vote in time",
 		testEndpoint("/elections/vote", 200, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
@@ -367,7 +371,20 @@ func TestAPI(t *testing.T) {
 	t.Run("Validated user should not be able to vote unexisting candidates",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{-1, -2}}}))
 
-	// TODO validated user tries to vote twice at the same time, check only one of the two goes through (race condition)
+	t.Run("Validated user should be able to vote just once", testVoteOnce(to{cookies: cookies2, params: m{"candidates": []int{1, 3}}}))
+}
+
+func testVoteOnce(options testOptions) func(*testing.T) {
+	return func(t *testing.T) {
+		ch := make(chan *httptest.ResponseRecorder)
+		go func() { ch <- testEndpointAux(t, "/elections/vote", options, -1) }()
+		go func() { ch <- testEndpointAux(t, "/elections/vote", options, -2) }()
+		rr1 := <-ch
+		rr2 := <-ch
+		if !(rr1.Code == 200 && rr2.Code == 500) && !(rr1.Code == 500 && rr2.Code == 200) {
+			t.Errorf("Same user trying to vote twice should result in a success and a failure, instead got (%d, %d)", rr1.Code, rr2.Code)
+		}
+	}
 }
 
 func newUser(name, email, uniqueID, password string) map[string]interface{} {
@@ -394,74 +411,7 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 	i := 0
 	return func(t *testing.T) {
 		i++
-		method := "GET"
-		var params interface{}
-		if options.method != "" {
-			method = options.method
-		}
-
-		if options.params != nil {
-			params = options.params
-		}
-
-		var body io.Reader
-		var err error
-		contentType := ""
-		if params != nil {
-			b, err := json.Marshal(params)
-			if err != nil {
-				t.Fatalf("[%d] Could not marshal params for endpoint %q. Error: %s", i, path, err)
-			}
-			body = bytes.NewReader(b)
-			contentType = "application/json"
-		} else if options.postParams != nil {
-			b := &bytes.Buffer{}
-			writer := multipart.NewWriter(b)
-			for key, val := range options.postParams {
-				if err = writer.WriteField(key, val); err != nil {
-					t.Fatalf("[%d] Could not write form field for endpoint %q. Error: %s", i, path, err)
-				}
-			}
-			if err := writer.Close(); err != nil {
-				t.Fatalf("[%d] Could not close writer for endpoint %q. Error: %s", i, path, err)
-			}
-			body = b
-			contentType = writer.FormDataContentType()
-		} else if options.file.name != "" {
-			body, contentType, err = fileUploadBody(options.file.name, "file", map[string]string{"description": options.file.description})
-			if err != nil {
-				t.Fatalf("[%d] Could not create file upload body for endpoint %q. Error: %s\n", i, path, err)
-			}
-		} else if options.candidate.Name != "" {
-			body, contentType, err = fileUploadBody(options.candidate.Image, "image", map[string]string{
-				"name":         options.candidate.Name,
-				"presentation": options.candidate.Presentation,
-			})
-			if err != nil {
-				t.Fatalf("[%d] Could not create candidate file upload body for endpoint %q. Error: %s\n", i, path, err)
-			}
-		}
-
-		req, err := http.NewRequest(method, path+options.query, body)
-		if err != nil {
-			t.Fatalf("[%d] Could not create request for endpoint %q. Error: %s\n", i, path, err)
-		}
-
-		if options.cookies != nil {
-			for _, cookie := range options.cookies {
-				req.AddCookie(cookie)
-			}
-		}
-		req.Header.Set("Content-Type", contentType)
-
-		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(appHandlers[path])
-		handler.ServeHTTP(rr, req)
-		if options.resCookies != nil {
-			for _, cookie := range rr.Result().Cookies() {
-				*options.resCookies = append(*options.resCookies, cookie)
-			}
-		}
+		rr := testEndpointAux(t, path, options, i)
 		if rr.Code != expectedCode {
 			t.Errorf("[%d] Expected code %v testing endpoint %q, but got %v.", i, expectedCode, path, rr.Code)
 		}
@@ -517,6 +467,79 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			t.Errorf("Wrong file contents. Expected %q but found %q.", options.fileContent, rr.Body.String())
 		}
 	}
+}
+
+func testEndpointAux(t *testing.T, path string, options testOptions, i int) *httptest.ResponseRecorder {
+	method := "GET"
+	var params interface{}
+	if options.method != "" {
+		method = options.method
+	}
+
+	if options.params != nil {
+		params = options.params
+	}
+
+	var body io.Reader
+	var err error
+	contentType := ""
+	if params != nil {
+		b, err := json.Marshal(params)
+		if err != nil {
+			t.Fatalf("[%d] Could not marshal params for endpoint %q. Error: %s", i, path, err)
+		}
+		body = bytes.NewReader(b)
+		contentType = "application/json"
+	} else if options.postParams != nil {
+		b := &bytes.Buffer{}
+		writer := multipart.NewWriter(b)
+		for key, val := range options.postParams {
+			if err = writer.WriteField(key, val); err != nil {
+				t.Fatalf("[%d] Could not write form field for endpoint %q. Error: %s", i, path, err)
+			}
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatalf("[%d] Could not close writer for endpoint %q. Error: %s", i, path, err)
+		}
+		body = b
+		contentType = writer.FormDataContentType()
+	} else if options.file.name != "" {
+		body, contentType, err = fileUploadBody(options.file.name, "file", map[string]string{"description": options.file.description})
+		if err != nil {
+			t.Fatalf("[%d] Could not create file upload body for endpoint %q. Error: %s\n", i, path, err)
+		}
+	} else if options.candidate.Name != "" {
+		body, contentType, err = fileUploadBody(options.candidate.Image, "image", map[string]string{
+			"name":         options.candidate.Name,
+			"presentation": options.candidate.Presentation,
+		})
+		if err != nil {
+			t.Fatalf("[%d] Could not create candidate file upload body for endpoint %q. Error: %s\n", i, path, err)
+		}
+	}
+
+	req, err := http.NewRequest(method, path+options.query, body)
+	if err != nil {
+		t.Fatalf("[%d] Could not create request for endpoint %q. Error: %s\n", i, path, err)
+	}
+
+	if options.cookies != nil {
+		for _, cookie := range options.cookies {
+			req.AddCookie(cookie)
+		}
+	}
+	req.Header.Set("Content-Type", contentType)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(appHandlers[path])
+	handler.ServeHTTP(rr, req)
+	if options.resCookies != nil {
+		for _, cookie := range rr.Result().Cookies() {
+			*options.resCookies = append(*options.resCookies, cookie)
+		}
+	}
+
+	return rr
 }
 
 func checkAppState(expectedUsers []expectedUser) func(*testing.T) {

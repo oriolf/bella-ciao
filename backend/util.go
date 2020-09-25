@@ -94,6 +94,24 @@ func messageOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err erro
 	return nil
 }
 
+func electionDidNotStart(db *sql.Tx, user *User, values par.Values, err error) error {
+	elections, err := getElections(db, false)
+	if err != nil {
+		return fmt.Errorf("could not get elections: %w", err)
+	}
+
+	if len(elections) != 1 {
+		return errors.New("expected just one election")
+	}
+
+	e := elections[0]
+	if now().After(e.Start) {
+		return errors.New("election already started")
+	}
+
+	return nil
+}
+
 func validIDFormats(db *sql.Tx, user *User, values par.Values, err error) error {
 	uniqueID := values.String("unique_id")
 	config, err := getConfig(db)

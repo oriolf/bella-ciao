@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/oriolf/bella-ciao/params"
 )
@@ -388,7 +387,6 @@ func CastVote(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p 
 		return fmt.Errorf("could not set user voted: %w", err)
 	}
 
-	time.Sleep(time.Second) // TODO remove when ensured same user can only vote once
 	if err := insertVote(db, candidates, voteHash); err != nil {
 		return fmt.Errorf("could not insert vote: %w", err)
 	}

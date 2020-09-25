@@ -95,11 +95,10 @@ var (
 		"/users/messages/solve":  handler(idParams, authFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
 		"/users/validate":        handler(idParams, authFuncs(requireLogin, adminUser), ValidateUser),
 
-		"/candidates/get":   handler(noParams, noLogin, GetCandidates),
-		"/candidates/image": handler(idParams, noLogin, GetCandidateImage),
-		// TODO test candidates can't be added or deleted after the election has begun
-		"/candidates/add":    handler(addCandidateParams, authFuncs(requireLogin, adminUser), AddCandidate),
-		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser), DeleteCandidate),
+		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
+		"/candidates/image":  handler(idParams, noLogin, GetCandidateImage),
+		"/candidates/add":    handler(addCandidateParams, authFuncs(requireLogin, adminUser, electionDidNotStart), AddCandidate),
+		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser, electionDidNotStart), DeleteCandidate),
 
 		"/elections/get":     handler(noParams, noLogin, GetElections),
 		"/elections/publish": handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
