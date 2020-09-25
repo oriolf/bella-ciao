@@ -28,6 +28,7 @@ type testOptions struct {
 
 	file                     expectedFile
 	fileContent              string
+	expectedUser             expectedUser
 	expectedUsers            expectedUsersResponse
 	expectedFiles            []expectedFile
 	expectedUnsolvedMessages []string
@@ -123,7 +124,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Registers with duplicated emails should be rejected",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
 
-	var cookies1, cookies2, cookies3 []*http.Cookie
+	var cookies1, cookies2, cookies3, cookieslogout []*http.Cookie
 	t.Run("Admin should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resCookies: &cookies1}))
 	t.Run("User should be able to log in",
@@ -132,6 +133,15 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login3, resCookies: &cookies3}))
 	t.Run("Log in with invalid parameters should be rejected",
 		testEndpoint("/auth/login", 400, to{method: "POST", params: ms{"unique_id": uniqueID1}}))
+
+	t.Run("User should be able to log in",
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login2, resCookies: &cookieslogout}))
+	t.Run("Logged in user should be able to get own information",
+		testEndpoint("/users/whoami", 200, to{cookies: cookieslogout, expectedUser: expectedUser{uniqueID: uniqueID2, role: ROLE_NONE}}))
+	t.Run("User should be able to log out",
+		testEndpoint("/auth/logout", 200, to{cookies: cookieslogout}))
+	t.Run("Logged out user should not be able to get own information",
+		testEndpoint("/users/whoami", 401, to{cookies: cookieslogout}))
 
 	t.Run("Check APP State", checkAppState([]expectedUser{
 		{uniqueID: uniqueID2, role: ROLE_NONE},
@@ -415,6 +425,7 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 		if rr.Code != expectedCode {
 			t.Errorf("[%d] Expected code %v testing endpoint %q, but got %v.", i, expectedCode, path, rr.Code)
 		}
+
 		if options.expectedUsers.Users != nil {
 			var response getUsersResponse
 			if err := json.Unmarshal([]byte(rr.Body.String()), &response); err != nil {
@@ -424,6 +435,15 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 				if options.expectedUsers.Total != response.Total {
 					t.Errorf("Expected %d total users but got %d.", options.expectedUsers.Total, response.Total)
 				}
+			}
+		}
+
+		if options.expectedUser.uniqueID != "" {
+			var response User
+			if err := json.Unmarshal([]byte(rr.Body.String()), &response); err != nil {
+				t.Errorf("Could not unmarshal expected user response: %s", err)
+			} else {
+				compareUsers(t, []expectedUser{options.expectedUser}, []User{response})
 			}
 		}
 
@@ -531,7 +551,12 @@ func testEndpointAux(t *testing.T, path string, options testOptions, i int) *htt
 	req.Header.Set("Content-Type", contentType)
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(appHandlers[path])
+	h, ok := appHandlers[path]
+	if !ok {
+		t.Fatalf("Unknown handler for path %q", path)
+	}
+
+	handler := http.HandlerFunc(h)
 	handler.ServeHTTP(rr, req)
 	if options.resCookies != nil {
 		for _, cookie := range rr.Result().Cookies() {

@@ -80,9 +80,9 @@ var (
 
 		"/auth/register": handler(registerParams, authFuncs(noLogin, validIDFormats), Register),
 		"/auth/login":    handler(loginParams, noLogin, Login),
-		"/auth/logout":   handler(noParams, noLogin, Logout), // TODO test
+		"/auth/logout":   handler(noParams, noLogin, Logout),
 
-		"/users/whoami":         handler(noParams, requireLogin, GetSelf), // TODO test
+		"/users/whoami":         handler(noParams, requireLogin, GetSelf),
 		"/users/files/own":      handler(noParams, requireLogin, GetOwnFiles),
 		"/users/files/delete":   handler(idParams, authFuncs(requireLogin, fileOwnerOrAdminUser), DeleteFile),
 		"/users/files/download": handler(idParams, authFuncs(requireLogin, fileOwnerOrAdminUser), DownloadFile),
