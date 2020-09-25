@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ type testOptions struct {
 	cookies    []*http.Cookie
 	resCookies *[]*http.Cookie
 	candidate  Candidate
+	voteToken  *string
 
 	file                     expectedFile
 	fileContent              string
@@ -358,30 +360,33 @@ func TestAPI(t *testing.T) {
 	t.Run("Admin users should be able to add candidates",
 		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
 
-	candidate1.ID = 2
-	candidate1.Image = "candidate_1.jpg"
-	election.Candidates = append(election.Candidates, candidate1)
-	candidate1.ID = 3
-	candidate1.Image = "candidate_2.jpg"
-	election.Candidates = append(election.Candidates, candidate1)
-	candidate1.ID = 4
-	candidate1.Image = "candidate_3.jpg"
-	election.Candidates = append(election.Candidates, candidate1)
+	candidate2, candidate3, candidate4 := candidate1, candidate1, candidate1
+	candidate2.ID = 2
+	candidate2.Image = "candidate_1.jpg"
+	election.Candidates = append(election.Candidates, candidate2)
+	candidate3.ID = 3
+	candidate3.Image = "candidate_2.jpg"
+	election.Candidates = append(election.Candidates, candidate3)
+	candidate4.ID = 4
+	candidate4.Image = "candidate_3.jpg"
+	election.Candidates = append(election.Candidates, candidate4)
 
 	t.Run("Admin user should not be able to vote before election start",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
 	timeTravel(90 * time.Minute)
 
-	candidate1.Image = "candidate.jpg"
 	t.Run("Candidates should not be added after election starts",
 		testEndpoint("/candidates/add", 401, to{cookies: cookies1, candidate: candidate1}))
 	t.Run("Candidates should not be deleted after election starts",
 		testEndpoint("/candidates/delete", 401, to{cookies: cookies1, query: "?id=1"}))
 
+	var voteToken string
 	t.Run("Admin user should be able to vote in time",
-		testEndpoint("/elections/vote", 200, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
+		testEndpoint("/elections/vote", 200, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}, voteToken: &voteToken}))
 	t.Run("Admin user should not be able to vote twice",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
+	t.Run("Admin user should be able to validate its vote",
+		testEndpoint("/elections/vote/check", 200, to{params: m{"token": voteToken}, expectedCandidates: []Candidate{candidate1, candidate3}}))
 
 	t.Run("Unvalidated user should not be able to vote",
 		testEndpoint("/elections/vote", 401, to{cookies: cookies3, params: m{"candidates": []int{1, 3}}}))
@@ -392,7 +397,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Validated user should not be able to vote unexisting candidates",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{-1, -2}}}))
 
-	t.Run("Validated user should be able to vote just once", testVoteOnce(to{cookies: cookies2, params: m{"candidates": []int{1, 3}}}))
+	t.Run("Validated user should be able to vote just once", testVoteOnce(to{cookies: cookies2, params: m{"candidates": []int{2, 3}}}))
 
 	// see that elections can have its votes counted
 	t.Run("The election should not have its votes counted yet",
@@ -400,10 +405,12 @@ func TestAPI(t *testing.T) {
 	checkElectionsCount()
 	t.Run("The election should not have its votes counted yet",
 		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
-	timeTravel(60 * time.Minute)
+
+	timeTravel(60 * time.Minute) // election ended
 	checkElectionsCount()
 	election.Counted = true
-	election.Candidates[0].Points = 8
+	election.Candidates[0].Points = 4
+	election.Candidates[1].Points = 4
 	election.Candidates[2].Points = 6
 	t.Run("The election should have its votes counted",
 		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
@@ -509,6 +516,10 @@ func testEndpoint(path string, expectedCode int, options testOptions) func(*test
 			} else {
 				compareElections(t, options.expectedElections, elections)
 			}
+		}
+
+		if options.voteToken != nil {
+			*options.voteToken = strings.Trim(rr.Body.String(), "\"")
 		}
 
 		if options.fileContent != "" && options.fileContent != rr.Body.String() {

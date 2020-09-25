@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/oriolf/bella-ciao/params"
 )
@@ -392,6 +393,39 @@ func CastVote(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p 
 	}
 
 	if err := WriteResult(w, voteHash); err != nil {
+		return fmt.Errorf("could not write response: %w", err)
+	}
+
+	return nil
+}
+
+func CheckVote(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
+	vote, err := getVoteFromHash(db, p.String("token"))
+	if err != nil {
+		return fmt.Errorf("could not get vote: %w", err)
+	}
+
+	candidates, err := getCandidatesFromIDs(db, vote.Candidates)
+	if err != nil {
+		return fmt.Errorf("could not get candidates: %w", err)
+	}
+
+	if len(candidates) != len(vote.Candidates) {
+		return fmt.Errorf("expected %d candidates, but got %d", len(vote.Candidates), len(candidates))
+	}
+
+	// sort the candidates the same as they where originally voted
+	candidatesRank := make(map[int]int, len(candidates))
+	for i, cID := range vote.Candidates {
+		candidatesRank[cID] = i
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		iRank, jRank := candidatesRank[candidates[i].ID], candidatesRank[candidates[j].ID]
+		return iRank < jRank
+	})
+
+	if err := WriteResult(w, candidates); err != nil {
 		return fmt.Errorf("could not write response: %w", err)
 	}
 

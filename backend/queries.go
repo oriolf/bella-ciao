@@ -389,6 +389,27 @@ func getCandidates(db *sql.Tx, electionID int) ([]interface{}, error) {
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
+func getCandidatesFromIDs(db *sql.Tx, ids []int) ([]Candidate, error) {
+	candidateIDs := make([]string, 0, len(ids))
+	for _, x := range ids {
+		candidateIDs = append(candidateIDs, strconv.Itoa(x))
+	}
+
+	results, err := queryDB(db, scanCandidate, fmt.Sprintf(`
+		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE id IN (%s);`,
+		strings.Join(candidateIDs, ",")))
+	if err != nil {
+		return nil, fmt.Errorf("could not get candidates: %w", err)
+	}
+
+	candidates := make([]Candidate, 0, len(results))
+	for _, x := range results {
+		candidates = append(candidates, x.(Candidate))
+	}
+
+	return candidates, nil
+}
+
 func updateCandidatePoints(db *sql.Tx, candidateID int, points float64) error {
 	return updateOneRecord(db, "UPDATE candidates SET points=? WHERE id=?;", points, candidateID)
 }
@@ -446,9 +467,9 @@ func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 		elIDstring = append(elIDstring, strconv.Itoa(e.ID))
 	}
 
-	results, err = queryDB(db, scanCandidate, `
-		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE election_id IN (?) ORDER BY random();`,
-		strings.Join(elIDstring, ","))
+	results, err = queryDB(db, scanCandidate, fmt.Sprintf(`
+		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE election_id IN (%s) ORDER BY random();`,
+		strings.Join(elIDstring, ",")))
 	if err != nil {
 		return nil, fmt.Errorf("error querying candidates: %w", err)
 	}
@@ -527,6 +548,19 @@ func getVotes(db *sql.Tx, electionID int) ([]Vote, error) {
 	}
 
 	return votes, nil
+}
+
+func getVoteFromHash(db *sql.Tx, hash string) (Vote, error) {
+	results, err := queryDB(db, scanVote, "SELECT id, election_id, hash, candidates FROM votes WHERE hash=?;", hash)
+	if err != nil {
+		return Vote{}, fmt.Errorf("could not get vote: %w", err)
+	}
+
+	if len(results) != 1 {
+		return Vote{}, fmt.Errorf("expected 1 vote, got %d", len(results))
+	}
+
+	return results[0].(Vote), nil
 }
 
 // params check queries

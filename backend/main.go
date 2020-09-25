@@ -75,6 +75,9 @@ var (
 	voteParams = par.P("json").
 			IntList("candidates").End()
 
+	checkVoteParams = par.P("json").
+			String("token", par.NonEmpty).End()
+
 	appHandlers = map[string]func(http.ResponseWriter, *http.Request){
 		"/uninitialized": handler(noParams, noLogin, Uninitialized),
 		"/initialize":    handler(initializeParams, noLogin, Initialize),
@@ -102,11 +105,10 @@ var (
 		"/candidates/add":    handler(addCandidateParams, authFuncs(requireLogin, adminUser, electionDidNotStart), AddCandidate),
 		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser, electionDidNotStart), DeleteCandidate),
 
-		"/elections/get":     handler(noParams, noLogin, GetElections),
-		"/elections/publish": handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
-		"/elections/vote":    handler(voteParams, authFuncs(requireLogin, validatedUser), CastVote),
-		// TODO providing the hash you should see which candidates were voted and in which order
-		//"/elections/vote/check": handler(checkVoteParams, noLogin, CheckVote),
+		"/elections/get":        handler(noParams, noLogin, GetElections),
+		"/elections/publish":    handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
+		"/elections/vote":       handler(voteParams, authFuncs(requireLogin, validatedUser), CastVote),
+		"/elections/vote/check": handler(checkVoteParams, noLogin, CheckVote),
 		// TODO implement /elections/update, test only valid params are accepted
 	}
 
