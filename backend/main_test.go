@@ -358,10 +358,21 @@ func TestAPI(t *testing.T) {
 	t.Run("Admin users should be able to add candidates",
 		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
 
+	candidate1.ID = 2
+	candidate1.Image = "candidate_1.jpg"
+	election.Candidates = append(election.Candidates, candidate1)
+	candidate1.ID = 3
+	candidate1.Image = "candidate_2.jpg"
+	election.Candidates = append(election.Candidates, candidate1)
+	candidate1.ID = 4
+	candidate1.Image = "candidate_3.jpg"
+	election.Candidates = append(election.Candidates, candidate1)
+
 	t.Run("Admin user should not be able to vote before election start",
 		testEndpoint("/elections/vote", 500, to{cookies: cookies1, params: m{"candidates": []int{1, 3}}}))
 	timeTravel(90 * time.Minute)
 
+	candidate1.Image = "candidate.jpg"
 	t.Run("Candidates should not be added after election starts",
 		testEndpoint("/candidates/add", 401, to{cookies: cookies1, candidate: candidate1}))
 	t.Run("Candidates should not be deleted after election starts",
@@ -382,6 +393,23 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/elections/vote", 500, to{cookies: cookies2, params: m{"candidates": []int{-1, -2}}}))
 
 	t.Run("Validated user should be able to vote just once", testVoteOnce(to{cookies: cookies2, params: m{"candidates": []int{1, 3}}}))
+
+	// see that elections can have its votes counted
+	t.Run("The election should not have its votes counted yet",
+		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
+	checkElectionsCount()
+	t.Run("The election should not have its votes counted yet",
+		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
+	timeTravel(60 * time.Minute)
+	checkElectionsCount()
+	election.Counted = true
+	election.Candidates[0].Points = 8
+	election.Candidates[2].Points = 6
+	t.Run("The election should have its votes counted",
+		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
+	checkElectionsCount()
+	t.Run("The election should have its votes counted",
+		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
 }
 
 func testVoteOnce(options testOptions) func(*testing.T) {
@@ -654,6 +682,10 @@ func compareElections(t *testing.T, expected []Election, got []Election) {
 	}
 
 	if len(expected) > 0 {
+		for k := range expected {
+			sort.Slice(expected[k].Candidates, func(i, j int) bool { return expected[k].Candidates[i].ID < expected[k].Candidates[j].ID })
+			sort.Slice(got[k].Candidates, func(i, j int) bool { return got[k].Candidates[i].ID < got[k].Candidates[j].ID })
+		}
 		if diff := cmp.Diff(expected, got); diff != "" {
 			t.Errorf("Expected no diff in elections, but got: %s.", diff)
 		}

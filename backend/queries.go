@@ -85,7 +85,7 @@ func scanVote(rows *sql.Rows) (interface{}, error) {
 
 func scanCandidate(rows *sql.Rows) (interface{}, error) {
 	var c Candidate
-	err := rows.Scan(&c.ID, &c.ElectionID, &c.Name, &c.Presentation, &c.Image)
+	err := rows.Scan(&c.ID, &c.ElectionID, &c.Name, &c.Presentation, &c.Image, &c.Points)
 	return c, err
 }
 
@@ -385,7 +385,7 @@ func validateUser(db *sql.Tx, userID int) error {
 }
 
 func getCandidates(db *sql.Tx, electionID int) ([]interface{}, error) {
-	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
+	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image, points
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
 }
 
@@ -447,7 +447,7 @@ func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 	}
 
 	results, err = queryDB(db, scanCandidate, `
-		SELECT id, election_id, name, presentation, image FROM candidates WHERE election_id IN (?) ORDER BY random();`,
+		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE election_id IN (?) ORDER BY random();`,
 		strings.Join(elIDstring, ","))
 	if err != nil {
 		return nil, fmt.Errorf("error querying candidates: %w", err)

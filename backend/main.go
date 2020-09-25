@@ -107,9 +107,6 @@ var (
 		"/elections/vote":    handler(voteParams, authFuncs(requireLogin, validatedUser), CastVote),
 		// TODO providing the hash you should see which candidates were voted and in which order
 		//"/elections/vote/check": handler(checkVoteParams, noLogin, CheckVote),
-		// TODO every minute it should be checked if an election has to be counted its results
-		// TODO if the election has its results counted, then return those results
-		//"/elections/result": handler(idParams, authFuncs(requireLogin, validatedUser), ElectionResults),
 		// TODO implement /elections/update, test only valid params are accepted
 	}
 
