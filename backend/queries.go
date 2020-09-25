@@ -50,7 +50,7 @@ func InitDB(db *sql.Tx) error {
 func scanElection(rows *sql.Rows) (interface{}, error) {
 	var e Election
 	var start, end string
-	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountMethod, &e.MaxCandidates, &e.MinCandidates, &e.Public)
+	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountMethod, &e.MaxCandidates, &e.MinCandidates, &e.Public, &e.Counted)
 	if err != nil {
 		return nil, fmt.Errorf("could not scan: %w", err)
 	}
@@ -66,6 +66,21 @@ func scanElection(rows *sql.Rows) (interface{}, error) {
 	}
 
 	return e, nil
+}
+
+func scanVote(rows *sql.Rows) (interface{}, error) {
+	var v Vote
+	err := rows.Scan(&v.ID, &v.ElectionID, &v.Hash, &v.CandidatesString)
+	if err != nil {
+		return nil, fmt.Errorf("could not scan: %w", err)
+	}
+
+	if err := json.Unmarshal([]byte(v.CandidatesString), &v.Candidates); err != nil {
+		return nil, fmt.Errorf("could not unmarshal candidates: %w", err)
+	}
+
+	v.CandidatesString = ""
+	return v, nil
 }
 
 func scanCandidate(rows *sql.Rows) (interface{}, error) {
@@ -366,26 +381,16 @@ func solveMessage(db *sql.Tx, messageID int) error {
 }
 
 func validateUser(db *sql.Tx, userID int) error {
-	res, err := db.Exec("UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
-	if err != nil {
-		return fmt.Errorf("could not execute update: %w", err)
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("could not count rows affected: %w", err)
-	}
-
-	if n != 1 {
-		return errors.New("no user updated")
-	}
-
-	return nil
+	return updateOneRecord(db, "UPDATE users SET role=? WHERE role=? AND id=?;", ROLE_VALIDATED, ROLE_NONE, userID)
 }
 
 func getCandidates(db *sql.Tx, electionID int) ([]interface{}, error) {
 	return queryDB(db, scanCandidate, `SELECT id, election_id, name, presentation, image 
 	FROM candidates WHERE election_id = ? ORDER BY random();`, electionID)
+}
+
+func updateCandidatePoints(db *sql.Tx, candidateID int, points float64) error {
+	return updateOneRecord(db, "UPDATE candidates SET points=? WHERE id=?;", points, candidateID)
 }
 
 func getAvailableCandidates(db *sql.Tx, electionID int) (map[int]struct{}, error) {
@@ -422,7 +427,7 @@ func deleteCandidate(db *sql.Tx, id int) error {
 
 func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 	results, err := queryDB(db, scanElection, `
-		SELECT id, name, date_start, date_end, count_method, max_candidates, min_candidates, public 
+		SELECT id, name, date_start, date_end, count_method, max_candidates, min_candidates, public, counted
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
 	if err != nil {
 		return nil, fmt.Errorf("error querying elections: %w", err)
@@ -467,7 +472,15 @@ func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 }
 
 func publishElection(db *sql.Tx, electionID int) error {
-	res, err := db.Exec("UPDATE elections SET public=TRUE WHERE id=?;", electionID)
+	return updateOneRecord(db, "UPDATE elections SET public=TRUE WHERE id=?;", electionID)
+}
+
+func setElectionCounted(db *sql.Tx, electionID int) error {
+	return updateOneRecord(db, "UPDATE elections SET counted=TRUE WHERE id=?;", electionID)
+}
+
+func updateOneRecord(db *sql.Tx, query string, args ...interface{}) error {
+	res, err := db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("could not execute update: %w", err)
 	}
@@ -478,42 +491,42 @@ func publishElection(db *sql.Tx, electionID int) error {
 	}
 
 	if n != 1 {
-		return errors.New("no election updated")
+		return fmt.Errorf("updated %d rows", n)
 	}
 
 	return nil
 }
 
 func setUserVoted(db *sql.Tx, userID int) error {
-	res, err := db.Exec("UPDATE users SET has_voted=1 WHERE has_voted=0 AND id=?;", userID)
-	if err != nil {
-		return fmt.Errorf("could not execute update: %w", err)
-	}
-
-	n, err := res.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("could not count rows affected: %w", err)
-	}
-
-	if n != 1 {
-		return errors.New("user already voted")
-	}
-
-	return nil
+	return updateOneRecord(db, "UPDATE users SET has_voted=1 WHERE has_voted=0 AND id=?;", userID)
 }
 
-func insertVote(db *sql.Tx, candidates []int, hash string) error {
+func insertVote(db *sql.Tx, electionID int, candidates []int, hash string) error {
 	b, err := json.Marshal(candidates)
 	if err != nil {
 		return fmt.Errorf("could not marshal candidates: %w", err)
 	}
 
-	_, err = db.Exec("INSERT INTO votes (hash, candidates) VALUES (?, ?);", hash, string(b))
+	_, err = db.Exec("INSERT INTO votes (election_id, hash, candidates) VALUES (?, ?, ?);", electionID, hash, string(b))
 	if err != nil {
 		return fmt.Errorf("could not insert vote: %w", err)
 	}
 
 	return nil
+}
+
+func getVotes(db *sql.Tx, electionID int) ([]Vote, error) {
+	results, err := queryDB(db, scanVote, "SELECT id, election_id, hash, candidates FROM votes WHERE election_id=?;", electionID)
+	if err != nil {
+		return nil, err
+	}
+
+	votes := make([]Vote, 0, len(results))
+	for _, x := range results {
+		votes = append(votes, x.(Vote))
+	}
+
+	return votes, nil
 }
 
 // params check queries

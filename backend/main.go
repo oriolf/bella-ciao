@@ -8,6 +8,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -17,9 +18,10 @@ import (
 
 var (
 	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
-	store         = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
-	queryCount    uint64
-	globalTesting bool
+	store          = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
+	queryCount     uint64
+	globalTesting  bool
+	electionsCount sync.Mutex
 
 	idParams = par.P("query").Int("id", par.PositiveInt).End()
 	noParams = par.None()
@@ -170,6 +172,8 @@ func bootstrap() error {
 
 	http.Handle("/", http.FileServer(http.Dir("website")))
 
+	go periodicFunc(checkElectionsCount, time.Minute)
+
 	return nil
 }
 
@@ -271,4 +275,76 @@ func authFuncs(fs ...func(*sql.Tx, *User, par.Values, error) error) func(*sql.Tx
 		}
 		return nil
 	}
+}
+
+func checkElectionsCount() {
+	electionsCount.Lock()
+	defer electionsCount.Unlock()
+
+	if err := checkElectionsCountAux(); err != nil {
+		log.Printf("Error during checkElectionsCount: %s\n", err)
+	}
+}
+
+func checkElectionsCountAux() error {
+	db, err := sql.Open("sqlite3", DB_FILE)
+	if err != nil {
+		return fmt.Errorf("could not open connection to db: %w", err)
+	}
+	defer db.Close()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("could not begin transaction: %w", err)
+	}
+
+	elections, err := getElections(tx, true)
+	if err != nil {
+		return fmt.Errorf("could not get elections: %w", err)
+	}
+
+	for _, e := range elections {
+		if now().After(e.End) && !e.Counted {
+			if err := countElection(tx, e); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("could not count election %d: %w", e.ID, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("could not commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func countElection(tx *sql.Tx, e Election) error {
+	vs, err := getVotes(tx, e.ID)
+	if err != nil {
+		return fmt.Errorf("could not get votes: %w", err)
+	}
+
+	votes := make([][]int, 0, len(vs))
+	for _, v := range vs {
+		votes = append(votes, v.Candidates)
+	}
+
+	results, err := countVotes(len(e.Candidates), votes, e.CountMethod)
+	if err != nil {
+		return fmt.Errorf("could not count votes: %w", err)
+	}
+
+	for candidateID, points := range results {
+		if err := updateCandidatePoints(tx, candidateID, points); err != nil {
+			return fmt.Errorf("could not update points for candidate %d: %w", candidateID, err)
+		}
+	}
+
+	if err := setElectionCounted(tx, e.ID); err != nil {
+		return fmt.Errorf("could not set election %d as counted: %w", e.ID, err)
+	}
+
+	return nil
 }

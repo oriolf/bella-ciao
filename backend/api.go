@@ -387,7 +387,7 @@ func CastVote(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p 
 		return fmt.Errorf("could not set user voted: %w", err)
 	}
 
-	if err := insertVote(db, candidates, voteHash); err != nil {
+	if err := insertVote(db, e.ID, candidates, voteHash); err != nil {
 		return fmt.Errorf("could not insert vote: %w", err)
 	}
 

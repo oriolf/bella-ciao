@@ -363,3 +363,40 @@ func now() time.Time {
 func timeTravel(d time.Duration) {
 	NOW_TEST_TIME = NOW_TEST_TIME.Add(d)
 }
+
+func periodicFunc(f func(), d time.Duration) {
+	c := time.Tick(5 * time.Second)
+	for range c {
+		f()
+	}
+}
+
+// each vote is a list of candidates
+// the result is a map where each candidate has its result
+func countVotes(totalCandidates int, votes [][]int, countMethod string) (map[int]float64, error) {
+	countFunc, ok := map[string]func(int, int) float64{
+		COUNT_BORDA:   countBorda,
+		COUNT_DOWDALL: countDowdall,
+	}[countMethod]
+	if !ok {
+		return nil, errors.New("unknown count method")
+	}
+
+	points := make(map[int]float64, totalCandidates)
+	for _, vote := range votes {
+		for index, candidate := range vote {
+			// the puntuation depends on the index inside the list and possibly on the number of candidates
+			points[candidate] += countFunc(index, totalCandidates)
+		}
+	}
+
+	return points, nil
+}
+
+func countBorda(index, totalCandidates int) float64 {
+	return float64(totalCandidates - index) // if there are 12 candidates, 12 for the first, 11 the second... 1 for the last
+}
+
+func countDowdall(index, totalCandidates int) float64 {
+	return 1.0 / float64(index+1) // 1 for the first, 0.5 for the second, 0.333... for the third, etc.
+}
