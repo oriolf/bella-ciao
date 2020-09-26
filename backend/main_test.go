@@ -72,6 +72,7 @@ func TestAPI(t *testing.T) {
 	login1 := m{"unique_id": uniqueID1, "password": "12345678"}
 	login2 := m{"unique_id": uniqueID2, "password": "12345678"}
 	login3 := m{"unique_id": uniqueID3, "password": "12345678"}
+	login5 := m{"unique_id": uniqueID5, "password": "12345678"}
 
 	// Initialization and registers
 
@@ -126,7 +127,7 @@ func TestAPI(t *testing.T) {
 	t.Run("Registers with duplicated emails should be rejected",
 		testEndpoint("/auth/register", 500, to{method: "POST", params: user4}))
 
-	var cookies1, cookies2, cookies3, cookieslogout []*http.Cookie
+	var cookies1, cookies2, cookies3, cookies5, cookieslogout []*http.Cookie
 	t.Run("Admin should be able to log in",
 		testEndpoint("/auth/login", 200, to{method: "POST", params: login1, resCookies: &cookies1}))
 	t.Run("User should be able to log in",
@@ -161,6 +162,8 @@ func TestAPI(t *testing.T) {
 
 	t.Run("Registers with previously invalid id format should work",
 		testEndpoint("/auth/register", 200, to{method: "POST", params: userNIE}))
+	t.Run("NIE user should be able to log in",
+		testEndpoint("/auth/login", 200, to{method: "POST", params: login5, resCookies: &cookies5}))
 
 	// User files management
 
@@ -399,6 +402,14 @@ func TestAPI(t *testing.T) {
 
 	t.Run("Validated user should be able to vote just once", testVoteOnce(to{cookies: cookies2, params: m{"candidates": []int{2, 3}}}))
 
+	t.Run("Admin user should be able to validate users",
+		testEndpoint("/users/validate", 200, to{cookies: cookies1, query: "?id=3"}))
+	t.Run("Admin user should be able to validate users",
+		testEndpoint("/users/validate", 200, to{cookies: cookies1, query: "?id=4"})) // user with ID 4 has uniqueID5
+	t.Run("Two users should be able to vote concurrently", testVoteConcurrent(
+		to{cookies: cookies3, params: m{"candidates": []int{3, 4, 2}}},
+		to{cookies: cookies5, params: m{"candidates": []int{4, 1, 2}}}))
+
 	// see that elections can have its votes counted
 	t.Run("The election should not have its votes counted yet",
 		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
@@ -409,9 +420,10 @@ func TestAPI(t *testing.T) {
 	timeTravel(60 * time.Minute) // election ended
 	checkElectionsCount()
 	election.Counted = true
-	election.Candidates[0].Points = 4
-	election.Candidates[1].Points = 4
-	election.Candidates[2].Points = 6
+	election.Candidates[0].Points = 7
+	election.Candidates[1].Points = 8
+	election.Candidates[2].Points = 10
+	election.Candidates[3].Points = 7
 	t.Run("The election should have its votes counted",
 		testEndpoint("/elections/get", 200, to{cookies: cookies1, expectedElections: []Election{election}}))
 	checkElectionsCount()
@@ -428,6 +440,19 @@ func testVoteOnce(options testOptions) func(*testing.T) {
 		rr2 := <-ch
 		if !(rr1.Code == 200 && rr2.Code == 500) && !(rr1.Code == 500 && rr2.Code == 200) {
 			t.Errorf("Same user trying to vote twice should result in a success and a failure, instead got (%d, %d)", rr1.Code, rr2.Code)
+		}
+	}
+}
+
+func testVoteConcurrent(options1, options2 testOptions) func(*testing.T) {
+	return func(t *testing.T) {
+		ch := make(chan *httptest.ResponseRecorder)
+		go func() { ch <- testEndpointAux(t, "/elections/vote", options1, -3) }()
+		go func() { ch <- testEndpointAux(t, "/elections/vote", options2, -4) }()
+		rr1 := <-ch
+		rr2 := <-ch
+		if rr1.Code != 200 || rr2.Code != 200 {
+			t.Errorf("Two users trying to vote at the same time should work, instead got (%d, %d)", rr1.Code, rr2.Code)
 		}
 	}
 }

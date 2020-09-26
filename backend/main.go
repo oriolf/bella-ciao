@@ -22,6 +22,7 @@ var (
 	queryCount     uint64
 	globalTesting  bool
 	electionsCount sync.Mutex
+	requestMutex   sync.Mutex
 
 	idParams = par.P("query").Int("id", par.PositiveInt).End()
 	noParams = par.None()
@@ -98,7 +99,8 @@ var (
 		"/users/messages/add":    handler(addMessageParams, authFuncs(requireLogin, adminUser), AddMessage),
 		"/users/messages/own":    handler(noParams, requireLogin, GetOwnMessages),
 		"/users/messages/solve":  handler(idParams, authFuncs(requireLogin, messageOwnerOrAdminUser), SolveMessage),
-		"/users/validate":        handler(idParams, authFuncs(requireLogin, adminUser), ValidateUser),
+		// TODO push notification on validation
+		"/users/validate": handler(idParams, authFuncs(requireLogin, adminUser), ValidateUser),
 
 		"/candidates/get":    handler(noParams, noLogin, GetCandidates),
 		"/candidates/image":  handler(idParams, noLogin, GetCandidateImage),
@@ -227,6 +229,9 @@ func handler(
 			log.Fatalf("[%d] Error during database connection in handler: %s\n", n, err)
 		}
 		defer db.Close()
+
+		requestMutex.Lock() // TODO using transactions implies that if we receive concurrent requests, one of the two will fale due to "database is locked" error, so we avoid it
+		defer requestMutex.Unlock()
 
 		tx, err := db.Begin()
 		if err != nil {
