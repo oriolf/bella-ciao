@@ -1,23 +1,23 @@
-<script>
+<script lang="ts">
   import UserFiles from "./UserFiles.svelte";
   import Alert from "./Alert.svelte";
-  import { get, formatDate } from "../util.ts";
+  import Loading from "./Loading.svelte";
+  import ElectionVote from "./ElectionVote.svelte";
+  import { get } from "../util";
+  import type { Election } from "../types/models.type";
 
-  let promise;
+  let promise: Promise<Election[]>;
   getElection();
   function getElection() {
-    promise = get("/api/elections/get");
+    promise = get("/api/elections/get", null);
   }
 </script>
 
+<Alert content="You have been validated" />
 {#await promise}
-  <Alert content="You have been validated" />
+  <Loading />
 {:then elections}
-  <Alert
-    content="You have been validated. The election will take place between {formatDate(elections[0].start)}
-    and {formatDate(elections[0].end)}" />
-{:catch _}
-  <Alert content="You have been validated" />
+  <ElectionVote election={elections[0]} />
 {/await}
 
 <h2>Uploaded files</h2>

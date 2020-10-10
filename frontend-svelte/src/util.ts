@@ -51,6 +51,16 @@ export async function get(url: string, sortFunc: null | SortFunc) {
     return r
 }
 
+export async function post(url: string, values: JsonValue) {
+    return await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+    })
+}
+
 export async function submitForm(url: string, form: HTMLFormElement) {
     return await fetch(url, {
         method: 'POST',

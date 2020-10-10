@@ -58,6 +58,7 @@ type expectedFile struct {
 // TODO test concurrent queries that insert in the database all work properly
 // TODO test that endpoints used in frontend match endpoints defined in appHandlers
 // TODO test user pagination properly
+// TODO load test
 func TestAPI(t *testing.T) {
 	bootstrap()
 	globalTesting = true

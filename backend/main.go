@@ -304,6 +304,7 @@ func checkElectionsCountAux() error {
 
 	elections, err := getElections(tx, true)
 	if err != nil {
+		tx.Rollback()
 		return fmt.Errorf("could not get elections: %w", err)
 	}
 

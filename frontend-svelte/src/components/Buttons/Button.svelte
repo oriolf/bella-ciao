@@ -3,11 +3,17 @@
 
   export let content: string;
   export let callback: () => Promise<any>;
+  export let instant: () => void;
   export let type: string = "primary";
+  export let disabled = false;
   let promise: Promise<any>;
   let classes = `align-middle btn btn-sm btn-outline-${type}`;
 
   function handleClick() {
+    if (instant) {
+      instant();
+      return;
+    }
     promise = callback();
   }
 </script>
@@ -16,7 +22,8 @@
   type="button"
   class={classes}
   style="width: 100%;"
-  on:click={handleClick}>
+  on:click={handleClick}
+  disabled={disabled}>
   {#await promise}
     <Loading />
   {:then _}
