@@ -31,4 +31,5 @@
   {:catch _}
     {content}
   {/await}
+  <slot />
 </button>

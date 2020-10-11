@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
   import {
     submitForm,
     submitFormJSON,
@@ -6,8 +6,9 @@
     extractFormValuesJSON,
   } from "../util";
   import { createEventDispatcher, onMount } from "svelte";
+  import type { FormParams } from "../types/models.type";
 
-  export let params;
+  export let params: FormParams;
   const dispatch = createEventDispatcher();
   let errors = {};
   let fields = {};
@@ -81,6 +82,7 @@
     }
     if (res.ok) {
       dispatch("executed", true);
+      dispatch("result", await res.json());
       form.reset();
       form.classList.remove("was-validated");
       wasValidated = false;

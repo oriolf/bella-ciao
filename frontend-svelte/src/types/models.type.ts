@@ -25,6 +25,31 @@ export type Election = {
     candidates: Candidate[]
 }
 
+export type FormParams = {
+    name: string,
+    values?: string,
+    url: string,
+    generalError?: string,
+    jsonFunc?: JsonFunc,
+    fields: FormField[]
+}
+
+export type FormField = {
+    name: string,
+    title?: string,
+    type?: string,
+    hint: string,
+    options?: FormOption[],
+    required: boolean,
+    errString: string,
+    validate?: (x: string) => ((y: JsonValue) => void | { [k: string]: string })
+}
+
+export type FormOption = {
+    id: number,
+    name: string
+}
+
 export type SortFunc = (x: any, y: any) => number;
 export type JsonFunc = (x: JsonValue) => JsonValue;
 

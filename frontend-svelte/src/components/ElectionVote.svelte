@@ -2,6 +2,7 @@
   import { user } from "../store";
   import { formatDate, post } from "../util";
   import Alert from "./Alert.svelte";
+  import Form from "./Form.svelte";
   import CandidatesVoteList from "./CandidatesVoteList.svelte";
   import Button from "./Buttons/Button.svelte";
   import type { Election, Candidate } from "../types/models.type";
@@ -9,14 +10,15 @@
   export let election: Election;
   let unselectedCandidates: Candidate[] = election.candidates;
   let selectedCandidates: Candidate[] = [];
+  let candidatesVotedFor: Candidate[];
   let disableVote = true;
+  let voteHash: string;
 
   $: disableVote =
     selectedCandidates.length < election.min_candidates ||
     selectedCandidates.length > election.max_candidates;
 
-  // TODO appropriate feedback on vote (show hash)
-  // TODO icons instead of text on select, up... buttons
+  // TODO show error if voted hash not found
 
   function select(event) {
     [unselectedCandidates, selectedCandidates] = move(
@@ -69,10 +71,25 @@
   }
 
   async function vote() {
-    await post("/api/elections/vote", {
+    let res = await post("/api/elections/vote", {
       candidates: selectedCandidates.map((x) => x.id),
     });
+    voteHash = await res.json();
+    $user.has_voted = true;
   }
+
+  const checkVoteForm = {
+    name: "Check vote",
+    url: "/api/elections/vote/check",
+    fields: [
+      {
+        name: "token",
+        hint: "Enter the token that was given when you voted",
+        required: true,
+        errString: "This field is required",
+      },
+    ],
+  };
 </script>
 
 <h2>Election</h2>
@@ -86,7 +103,36 @@
     The election has started and will be open until {formatDate(election.end)}
   </p>
   {#if $user.has_voted}
-    <Alert content="You have already voted" type="warning" />
+    {#if voteHash}
+      <Alert
+        content="You vote has been recorded, you can check for which candidates did you vote by providing the following identifier: {voteHash}" />
+    {:else}
+      <Alert content="You have already voted" type="warning" />
+      <div class="card" style="padding: 5px;">
+        <div class="row">
+          <div class="col-12">
+            {#if !candidatesVotedFor}
+              <p>
+                You can check your vote by providing the identifier that was
+                shown to you when you voted:
+              </p>
+              <Form
+                params={checkVoteForm}
+                on:result={(res) => {
+                  candidatesVotedFor = res.detail;
+                }} />
+            {:else}
+              <p>You voted for the following candidates:</p>
+              <ol>
+                {#each candidatesVotedFor as candidate}
+                  <li>{candidate.name}</li>
+                {/each}
+              </ol>
+            {/if}
+          </div>
+        </div>
+      </div>
+    {/if}
   {:else}
     <div class="card" style="padding: 5px;">
       <div class="row">

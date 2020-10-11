@@ -2,6 +2,10 @@
   import type { Candidate } from "../types/models.type";
   import Button from "./Buttons/Button.svelte";
   import { createEventDispatcher } from "svelte";
+  import { ArrowRight } from "svelte-bootstrap-icons/lib/ArrowRight";
+  import { ArrowLeft } from "svelte-bootstrap-icons/lib/ArrowLeft";
+  import { ArrowDown } from "svelte-bootstrap-icons/lib/ArrowDown";
+  import { ArrowUp } from "svelte-bootstrap-icons/lib/ArrowUp";
 
   const dispatch = createEventDispatcher();
   export let selected: boolean;
@@ -27,25 +31,29 @@
         {#if selected}
           <td>
             <Button
-              content="deselect"
-              instant={() => dispatch('deselect', candidate.id)} />
+              content=""
+              instant={() => dispatch('deselect', candidate.id)}>
+              <ArrowLeft width="1.5em" height="1.5em" />
+            </Button>
           </td>
         {/if}
         <td>{candidate.name}</td>
         {#if selected}
           <td>
-            <Button
-              content="down"
-              instant={() => dispatch('down', candidate.id)} />
+            <Button content="" instant={() => dispatch('down', candidate.id)}>
+              <ArrowDown width="1.5em" height="1.5em" />
+            </Button>
           </td>
           <td>
-            <Button content="up" instant={() => dispatch('up', candidate.id)} />
+            <Button content="" instant={() => dispatch('up', candidate.id)}>
+              <ArrowUp width="1.5em" height="1.5em" />
+            </Button>
           </td>
         {:else}
           <td>
-            <Button
-              content="select"
-              instant={() => dispatch('select', candidate.id)} />
+            <Button content="" instant={() => dispatch('select', candidate.id)}>
+              <ArrowRight width="1.5em" height="1.5em" />
+            </Button>
           </td>
         {/if}
       </tr>
