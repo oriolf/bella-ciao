@@ -1,4 +1,6 @@
 <script lang="ts">
+  // TODO convert all to TypeScript
+  // TODO translate all
   import LoginForm from "../components/LoginForm.svelte";
   import RoleNone from "../components/RoleNone.svelte";
   import RoleValidated from "../components/RoleValidated.svelte";

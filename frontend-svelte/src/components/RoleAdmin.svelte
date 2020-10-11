@@ -1,5 +1,4 @@
 <script>
-  // TODO convert all to TypeScript
   import UsersPagination from "./UsersPagination.svelte";
   import Loading from "./Loading.svelte";
   import ElectionVote from "./ElectionVote.svelte";

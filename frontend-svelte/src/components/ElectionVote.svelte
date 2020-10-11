@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { _ } from "svelte-i18n";
   import { user } from "../store";
   import { formatDate, post } from "../util";
   import Alert from "./Alert.svelte";
@@ -100,7 +101,9 @@
   </p>
 {:else if new Date() > new Date(election.start) && new Date() < new Date(election.end)}
   <p>
-    The election has started and will be open until {formatDate(election.end)}
+    {$_('comp.election_vote.election_started', {
+      values: { end: formatDate(election.end) },
+    })}
   </p>
   {#if $user.has_voted}
     {#if voteHash}
