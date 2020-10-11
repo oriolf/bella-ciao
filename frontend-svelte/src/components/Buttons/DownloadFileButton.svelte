@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
   import Button from "./Button.svelte";
-  export let id;
-  export let filename;
+  export let id: number;
+  export let filename: string;
 
   async function downloadFile() {
     let res = await fetch(`/api/users/files/download?id=${id}`);

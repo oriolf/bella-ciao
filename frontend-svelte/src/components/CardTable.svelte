@@ -1,10 +1,10 @@
-<script>
+<script lang="ts">
   import Loading from "./Loading.svelte";
   import Alert from "./Alert.svelte";
 
-  export let headers;
-  export let rows;
-  export let error;
+  export let headers: string[];
+  export let rows: Promise<any[]>;
+  export let error: string;
 </script>
 
 {#await rows}

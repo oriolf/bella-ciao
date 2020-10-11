@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
   import CardTable from "./CardTable.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
-  import { get, sortByField } from "../util.ts";
+  import { get, sortByField } from "../util";
+  import type { UserFile } from "../types/models.type";
 
-  let files;
-  export let reloadFiles = 0;
+  let files: Promise<UserFile[]>;
+  export let reloadFiles: number = 0;
   $: getFiles(reloadFiles);
 
   async function getFiles(_) {

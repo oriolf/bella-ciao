@@ -1,22 +1,27 @@
-<script>
+<script lang="ts">
   import Loading from "./Loading.svelte";
   import Alert from "./Alert.svelte";
   import Pagination from "./Pagination.svelte";
   import Button from "./Buttons/Button.svelte";
   import DownloadFileButton from "./Buttons/DownloadFileButton.svelte";
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
-  import { get, submitFormJSON } from "../util.ts";
+  import { get, submitFormJSON } from "../util";
+  import type { User } from "../types/models.type";
 
-  export let url;
-  export let error;
-  export let unvalidated;
-  let response;
-  let page = 1;
-  let itemsPerPage = 10;
-  let query = "";
+  export let url: string;
+  export let error: string;
+  export let unvalidated: boolean;
+  let response: Promise<{
+    users: User[],
+    total: number
+  }>;
+  let page: number = 1;
+  let itemsPerPage: number = 10;
+  let query: string = "";
+  let userMessageID: number;
+  let userMessage: string = "";
   let timer;
-  let userMessageID;
-  let userMessage = "";
+  const JQ: any = jQuery;
 
   const debounce = (v) => {
     clearTimeout(timer);
@@ -29,7 +34,7 @@
 
   async function getUsers(pg, qry) {
     response = get(
-      `${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`
+      `${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`, null
     );
   }
 
@@ -40,8 +45,8 @@
 
   function beginAddMessage(userID) {
     userMessageID = userID;
-    jQuery("#addMessageModal").on("shown.bs.modal", function () {
-      jQuery("#userMessageInput").trigger("focus");
+    JQ("#addMessageModal").on("shown.bs.modal", function () {
+      JQ("#userMessageInput").trigger("focus");
     });
   }
 
@@ -49,10 +54,15 @@
     await submitFormJSON("/api/users/messages/add", {
       user_id: userMessageID,
       content: userMessage,
-    });
-    jQuery("#addMessageModal").modal("hide");
+    }, null);
+    JQ("#addMessageModal").modal("hide");
     userMessage = "";
     getUsers(page, query);
+  }
+
+  function debounceInput(event: Event) {
+    const target = event.target as HTMLInputElement;
+    debounce(target.value);
   }
 </script>
 
@@ -73,7 +83,7 @@
         placeholder="Filter by user identifier"
         aria-label="Filter by user identifier"
         aria-describedby="filter-users"
-        on:keyup={({ target: { value } }) => debounce(value)} />
+        on:keyup={debounceInput} />
     </div>
     {#await response}
       <Loading />

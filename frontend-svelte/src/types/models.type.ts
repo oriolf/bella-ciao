@@ -4,8 +4,22 @@ export type User = {
     unique_id: string,
     email: string,
     role: "none" | "validated" | "admin",
-    has_voted: boolean
+    has_voted: boolean,
+    messages: UserMessage[],
+    files: UserFile[]
 };
+
+export type UserMessage = {
+    id: number,
+    content: string,
+    solved: boolean
+}
+
+export type UserFile = {
+    id: number,
+    name: string,
+    description: string
+}
 
 export type Candidate = {
     id: number,
@@ -41,16 +55,19 @@ export type FormField = {
     hint: string,
     options?: FormOption[],
     required: boolean,
-    errString: string,
-    validate?: (x: string) => ((y: JsonValue) => void | { [k: string]: string })
+    errString?: string,
+    validate?: ValidateGeneratorFunc
 }
 
 export type FormOption = {
-    id: number,
+    id: string,
     name: string
 }
 
 export type SortFunc = (x: any, y: any) => number;
 export type JsonFunc = (x: JsonValue) => JsonValue;
+export type ValidateGeneratorFunc = (x: string) => ValidateFunc;
+export type ValidateFunc = (y: JsonValue) => StringMap;
 
+export type StringMap = { [k: string]: string };
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };

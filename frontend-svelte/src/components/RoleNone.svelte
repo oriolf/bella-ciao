@@ -1,14 +1,15 @@
-<script>
+<script lang="ts">
   import Alert from "./Alert.svelte";
   import Button from "./Buttons/Button.svelte";
   import CardTable from "./CardTable.svelte";
   import Form from "./Form.svelte";
   import UserFiles from "./UserFiles.svelte";
   import { get, sortByField } from "../util";
+  import type { UserMessage, FormParams } from "../types/models.type";
 
-  let messages;
-  let reloadFiles = 0;
-  let uploadFileForm = {
+  let messages: Promise<UserMessage[]>;
+  let reloadFiles: number = 0;
+  let uploadFileForm: FormParams = {
     name: "Upload file",
     values: "form",
     url: "/api/users/files/upload",
@@ -35,7 +36,7 @@
   }
 
   // TODO handle errors
-  async function solveMessage(id) {
+  async function solveMessage(id: number) {
     await fetch(`/api/users/messages/solve?id=${id}`);
     getMessages();
   }

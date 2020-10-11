@@ -1,11 +1,12 @@
-<script>
+<script lang="ts">
   import { createEventDispatcher } from "svelte";
   import Form from "./Form.svelte";
+  import type { FormParams } from "../types/models.type";
 
   const dispatch = createEventDispatcher();
-  let loggingIn = true;
+  let loggingIn: boolean = true;
 
-  const loginForm = {
+  const loginForm: FormParams = {
     name: "Log in",
     url: "/api/auth/login",
     generalError: "The user or the password are invalid",
@@ -26,7 +27,7 @@
     ],
   };
 
-  const registerForm = {
+  const registerForm: FormParams = {
     name: "Register",
     url: "/api/auth/register",
     generalError:

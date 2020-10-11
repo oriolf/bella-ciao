@@ -1,10 +1,10 @@
-<script>
+<script lang="ts">
 	import Nav from '../components/Nav.svelte';
 	import { setupI18n } from "../i18n.js";
 
 	setupI18n();
 
-	export let segment;
+	export let segment: string;
 </script>
 
 <style>

@@ -1,20 +1,20 @@
-<script>
-  export let page;
-  export let itemsPerPage;
-  export let totalItems;
-  let pages;
-  let lastPage;
+<script lang="ts">
+  export let page: number;
+  export let itemsPerPage: number;
+  export let totalItems: number;
+  let pages: number[];
+  let lastPage: number;
 
   $: generatePagesArray(page);
 
-  function generatePagesArray(page) {
+  function generatePagesArray(page: number) {
     lastPage = Math.ceil(totalItems / itemsPerPage);
     if (lastPage <= 5) {
       pages = allPages(lastPage);
       return;
     }
 
-    let pgs = [];
+    let pgs: number[] = [];
     if (page === 1) {
       pgs = [1, 2, 3, halfway(page, lastPage, true), lastPage];
     } else if (page === lastPage) {
@@ -33,7 +33,7 @@
     pages = pgs;
   }
 
-  function allPages(last) {
+  function allPages(last: number): number[] {
     let l = [];
     for (let i = 1; i <= last; i++) {
       l.push(i);
@@ -41,7 +41,7 @@
     return l;
   }
 
-  function halfway(a, b, low) {
+  function halfway(a: number, b: number, low = false): number {
     if (a === 1 && b === 2) {
       return 3;
     }
@@ -56,7 +56,7 @@
     return Math.floor((a + b) / 2);
   }
 
-  function setPage(n) {
+  function setPage(n: number): () => void {
     return function () {
       if (n > lastPage) {
         page = lastPage;

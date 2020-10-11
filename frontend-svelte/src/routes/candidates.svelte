@@ -1,11 +1,11 @@
-<script>
+<script lang="ts">
   import { user } from "../store";
   import { whoami } from "../util";
   import CandidatesList from "../components/CandidatesList.svelte";
   import CandidateForm from "../components/CandidateForm.svelte";
 
-  let isAdmin = false;
-  let reloadCandidates = 0;
+  let isAdmin: boolean = false;
+  let reloadCandidates: number = 0;
   getUser();
 
   async function getUser() {

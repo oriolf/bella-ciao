@@ -6,19 +6,19 @@
     extractFormValuesJSON,
   } from "../util";
   import { createEventDispatcher, onMount } from "svelte";
-  import type { FormParams } from "../types/models.type";
+  import type { FormParams, FormField, ValidateFunc, StringMap } from "../types/models.type";
 
   export let params: FormParams;
   const dispatch = createEventDispatcher();
-  let errors = {};
-  let fields = {};
+  let errors: StringMap = {};
+  let fields: { [k: string]: FormField } = {};
   let generalError = "";
-  let valFuncs;
-  let wasValidated = false;
-  let multiselectFields;
+  let valFuncs: ValidateFunc;
+  let wasValidated: boolean = false;
+  let multiselectFields: string[];
 
   onMount(() => {
-    let l = [];
+    let l: ValidateFunc[] = [];
     for (let i = 0; i < params.fields.length; i++) {
       let field = params.fields[i];
       fields[field.name] = field;

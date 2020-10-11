@@ -7,7 +7,7 @@
   export let type: string = "primary";
   export let disabled = false;
   let promise: Promise<any>;
-  let classes = `align-middle btn btn-sm btn-outline-${type}`;
+  let classes: string = `align-middle btn btn-sm btn-outline-${type}`;
 
   function handleClick() {
     if (instant) {

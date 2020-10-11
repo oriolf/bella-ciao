@@ -1,9 +1,10 @@
-<script>
+<script lang="ts">
   import Form from "./Form.svelte";
   import { createEventDispatcher } from "svelte";
+  import type { FormParams } from "../types/models.type";
 
   const dispatch = createEventDispatcher();
-  let candidateForm = {
+  let candidateForm: FormParams = {
     name: "Add new candidate",
     values: "form",
     url: "/api/candidates/add",

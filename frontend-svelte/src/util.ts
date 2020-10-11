@@ -1,5 +1,5 @@
 import type { Writable } from "svelte/store";
-import type { User, SortFunc, JsonValue, JsonFunc } from "./types/models.type";
+import type { User, SortFunc, JsonValue, JsonFunc, ValidateFunc, StringMap } from "./types/models.type";
 
 export function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms))
@@ -8,7 +8,7 @@ export function sleep(ms: number) {
 export function extractFormValuesJSON(form: HTMLFormElement, multiselectFields: string[]) {
     let data = new FormData(form)
     let json = {};
-    data.forEach(function(v, k) {
+    data.forEach(function (v, k) {
         if (multiselectFields && multiselectFields.includes(k)) {
             json[k] = data.getAll(k)
         } else {
@@ -18,16 +18,16 @@ export function extractFormValuesJSON(form: HTMLFormElement, multiselectFields: 
     return json
 }
 
-export function validationFuncs(funcs) {
-    return function(values) {
-        let errors = {}
+export function validationFuncs(funcs: ValidateFunc[]): ValidateFunc {
+    return function (values: JsonValue): StringMap {
+        let errors: StringMap = {};
         for (let f of funcs) {
             let errs = f(values);
             for (var k in errs) {
                 errors[k] = errs[k]
             }
         }
-        return errors
+        return errors;
     }
 }
 
@@ -99,10 +99,12 @@ export function formatDate(s: string): string {
 }
 
 export function validateArrayLengthPositive(name: string) {
-    return function(values: JsonValue) {
+    return function (values: JsonValue): StringMap {
         if (!values[name] || values[name].length === 0) {
             return {
-                [name]: "error" };
+                [name]: "error"
+            };
         }
+        return {};
     }
 }

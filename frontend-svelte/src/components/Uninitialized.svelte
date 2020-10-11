@@ -1,19 +1,20 @@
-<script>
+<script lang="ts">
   import Form from "./Form.svelte";
   import { COUNT_METHODS, ID_FORMATS } from "../constants.js";
-  import { validateArrayLengthPositive } from "../util.ts";
+  import { validateArrayLengthPositive } from "../util";
+  import type { StringMap, FormParams, JsonValue } from "../types/models.type";
 
   function siteInitialized() {
-    window.location = "/";
+    window.location.href = "/";
   }
 
-  function composeTime(v, field) {
+  function composeTime(v: StringMap, field: string) {
     return new Date(
       v[field + "_date"] + " " + v[field + "_time"]
     ).toISOString();
   }
 
-  function groupParameters(v) {
+  function groupParameters(v: StringMap): JsonValue {
     return {
       admin: {
         name: v.name,
@@ -35,7 +36,7 @@
     };
   }
 
-  let candidateForm = {
+  let candidateForm: FormParams = {
     name: "Initialize",
     url: "/api/initialize",
     generalError: "Could not initialize site",

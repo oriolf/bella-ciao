@@ -1,8 +1,8 @@
-<script>
+<script lang="ts">
   import Button from "./Button.svelte";
   import { createEventDispatcher } from "svelte";
 
-  export let id;
+  export let id: number;
   const dispatch = createEventDispatcher();
 
   async function deleteFile() {
