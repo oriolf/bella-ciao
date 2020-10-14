@@ -69,7 +69,7 @@
   }
 </script>
 
-<nav aria-label="Page navigation example">
+<nav>
   <ul class="pagination">
     <li class="page-item" class:disabled={page === 1 || totalItems === 0}>
       <a class="page-link" href="." on:click={setPage(page - 1)}>Previous</a>

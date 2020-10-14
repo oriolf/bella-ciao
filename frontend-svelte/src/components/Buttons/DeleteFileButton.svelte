@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from "./Button.svelte";
   import { createEventDispatcher } from "svelte";
+  import { _ } from "svelte-i18n";
 
   export let id: number;
   const dispatch = createEventDispatcher();
@@ -11,4 +12,4 @@
   }
 </script>
 
-<Button content="Delete file" type="danger" callback={() => deleteFile()} />
+<Button content={$_("comp.buttons.delete_file")} type="danger" callback={() => deleteFile()} />

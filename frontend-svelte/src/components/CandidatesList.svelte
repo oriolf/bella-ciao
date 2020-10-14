@@ -4,6 +4,7 @@
   import Loading from "./Loading.svelte";
   import Button from "./Buttons/Button.svelte";
   import type { Candidate } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   let promise: Promise<Candidate[]>;
   export let reloadCandidates: number;
@@ -30,7 +31,7 @@
       <div class="card-header">
         {candidate.name}{#if admin}
           <span class="float-right"><Button
-              content="Delete candidate"
+              content={$_("comp.candidates_list.delete")}
               type="danger"
               callback={() => deleteCandidate(candidate.id)} /></span>
         {/if}
@@ -39,7 +40,7 @@
         <div class="row">
           <div class="col-md-3">
             <img
-              alt={`Candidate ${candidate.name} image`}
+              alt={$_("comp.candidates_list.image", { values: { name: candidate.name } })}
               style="max-width: 100%;"
               src={`/api/candidates/image?id=${candidate.id}`} />
           </div>
@@ -48,6 +49,6 @@
       </div>
     </div>
   {/each}
-{:catch _}
-  <Alert type="danger" content="Could not get candidates" />
+{:catch e}
+  <Alert type="danger" content={$_("comp.candidates_list.error")} />
 {/await}

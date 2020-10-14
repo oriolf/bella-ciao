@@ -4,6 +4,7 @@
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
   import { get, sortByField } from "../util";
   import type { UserFile } from "../types/models.type";
+import { _ } from "svelte-i18n";
 
   let files: Promise<UserFile[]>;
   export let reloadFiles: number = 0;
@@ -15,9 +16,9 @@
 </script>
 
 <CardTable
-  headers={['Description', '', '']}
+  headers={[$_("comp.user_files.description"), '', '']}
   rows={files}
-  error="Could not obtain the uploaded files"
+  error={$_("comp.user_files.files_err")}
   let:row>
   <td>{row.description}</td>
   <td>

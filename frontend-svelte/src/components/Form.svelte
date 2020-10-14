@@ -7,6 +7,7 @@
   } from "../util";
   import { createEventDispatcher, onMount } from "svelte";
   import type { FormParams, FormField, ValidateFunc, StringMap } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   export let params: FormParams;
   const dispatch = createEventDispatcher();
@@ -26,7 +27,7 @@
         l.push(field.validate(field.name));
       }
       if (field.required && !field.errString) {
-        params.fields[i].errString = "This field is required";
+        params.fields[i].errString = "comp.form.field_required";
       }
     }
 
@@ -46,14 +47,14 @@
   function updateValidationAux(form, errors) {
     for (let el of form.elements) {
       if (errors[el.name]) {
-        el.setCustomValidity(errors[el.name]);
+        el.setCustomValidity($_(errors[el.name]));
       } else if (
         fields[el.name] &&
         fields[el.name].required &&
         el.value === ""
       ) {
-        el.setCustomValidity("This field is required");
-        errors[el.name] = "This field is required";
+        el.setCustomValidity($_("comp.form.field_required"));
+        errors[el.name] = "comp.form.field_required";
       } else {
         el.setCustomValidity("");
       }
@@ -108,7 +109,7 @@
               id={field.name}
               name={field.name}
               required={field.required} />
-            <div class="invalid-feedback">{field.errString}</div>
+            <div class="invalid-feedback">{$_(field.errString)}</div>
         </div>
       {:else if field.type === 'textarea'}
         <textarea
@@ -117,7 +118,7 @@
           class:is-invalid={wasValidated && errors[field.name]}
           id={field.name}
           name={field.name}
-          placeholder={field.hint}
+          placeholder={$_(field.hint)}
           required={field.required}
           rows="3" />
       {:else if field.type === 'datetime'}
@@ -125,7 +126,7 @@
           {#if field.title}
             <label
               for={field.name + '_date'}
-              class="col-md-3 col-form-label">{field.title} (date)</label>
+              class="col-md-3 col-form-label">{$_(field.title)} (date)</label>
           {/if}
           <div class={field.title ? 'col-md-9' : 'col-md-12'}>
             <input
@@ -135,17 +136,17 @@
               id={field.name + '_date'}
               name={field.name + '_date'}
               aria-describedby={field.name + '_help'}
-              placeholder={field.hint}
+              placeholder={$_(field.hint)}
               type="date"
               required={field.required} />
-            <div class="invalid-feedback">{field.errString}</div>
+            <div class="invalid-feedback">{$_(field.errString)}</div>
           </div>
         </div>
         <div class="form-group row">
           {#if field.title}
             <label
               for={field.name + '_time'}
-              class="col-md-3 col-form-label">{field.title} (time)</label>
+              class="col-md-3 col-form-label">{$_(field.title)} (time)</label>
           {/if}
           <div class={field.title ? 'col-md-9' : 'col-md-12'}>
             <input
@@ -155,10 +156,10 @@
               id={field.name + '_time'}
               name={field.name + '_time'}
               aria-describedby={field.name + '_help'}
-              placeholder={field.hint}
+              placeholder={$_(field.hint)}
               type="time"
               required={field.required} />
-            <div class="invalid-feedback">{field.errString}</div>
+            <div class="invalid-feedback">{$_(field.errString)}</div>
           </div>
         </div>
       {:else if field.type === 'select'}
@@ -166,7 +167,7 @@
           {#if field.title}
             <label
               for={field.name}
-              class="col-md-3 col-form-label">{field.title}</label>
+              class="col-md-3 col-form-label">{$_(field.title)}</label>
           {/if}
           <div class={field.title ? 'col-md-9' : 'col-md-12'}>
             <select
@@ -177,12 +178,12 @@
               name={field.name}
               aria-describedby={field.name + '_help'}
               required={field.required}>
-              <option disabled selected value>{field.hint}</option>
+              <option disabled selected value>{$_(field.hint)}</option>
               {#each field.options as option}
-                <option value={option.id}>{option.name}</option>
+                <option value={option.id}>{$_(option.name)}</option>
               {/each}
             </select>
-            <div class="invalid-feedback">{field.errString}</div>
+            <div class="invalid-feedback">{$_(field.errString)}</div>
           </div>
         </div>
       {:else if field.type === 'multiselect'}
@@ -190,7 +191,7 @@
           {#if field.title}
             <label
               for={field.name}
-              class="col-md-3 col-form-label">{field.title}</label>
+              class="col-md-3 col-form-label">{$_(field.title)}</label>
           {/if}
           <div class={field.title ? 'col-md-9' : 'col-md-12'}>
             <div class="form-check form-check-inline">
@@ -205,7 +206,7 @@
                 <label
                   class="form-check-label"
                   style="margin-right: 15px;"
-                  for={field.name}>{option.name}</label>
+                  for={field.name}>{$_(option.name)}</label>
               {/each}
             </div>
           </div>
@@ -215,7 +216,7 @@
           {#if field.title}
             <label
               for={field.name}
-              class="col-md-3 col-form-label">{field.title}</label>
+              class="col-md-3 col-form-label">{$_(field.title)}</label>
           {/if}
           <div class={field.title ? 'col-md-9' : 'col-md-12'}>
             <input
@@ -225,19 +226,19 @@
               id={field.name}
               name={field.name}
               aria-describedby={field.name + '_help'}
-              placeholder={field.hint}
+              placeholder={$_(field.hint)}
               type={field.type || 'text'}
               required={field.required} />
-            <div class="invalid-feedback">{field.errString}</div>
+            <div class="invalid-feedback">{$_(field.errString)}</div>
           </div>
         </div>
       {/if}
     {/each}
-    <button type="submit" class="btn btn-primary">{params.name}</button>
+    <button type="submit" class="btn btn-primary">{$_(params.name)}</button>
     <slot />
     {#if generalError}
       <div class="alert alert-danger" role="alert" style="margin: 15px 0 0 0;">
-        {generalError}
+        {$_(generalError)}
       </div>
     {/if}
   </form>

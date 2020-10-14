@@ -34,7 +34,7 @@ export function validationFuncs(funcs: ValidateFunc[]): ValidateFunc {
 export async function whoami(user: Writable<User>) {
     let res = await fetch('/api/users/whoami')
     if (!res.ok) {
-        throw new Error('Not logged in')
+        throw new Error('NOT_LOGGED')
     }
     user.set(await res.json() as User)
 }
@@ -42,7 +42,7 @@ export async function whoami(user: Writable<User>) {
 export async function get(url: string, sortFunc: null | SortFunc) {
     let res = await fetch(url)
     if (!res.ok) {
-        throw new Error(`Could not get ${url}`)
+        throw new Error("COULD_NOT_GET_URL")
     }
     let r = await res.json()
     if (sortFunc) {

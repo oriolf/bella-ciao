@@ -5,6 +5,7 @@
   import ElectionVote from "./ElectionVote.svelte";
   import { get } from "../util";
   import type { Election } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   let promise: Promise<Election[]>;
   getElection();
@@ -13,7 +14,7 @@
   }
 </script>
 
-<Alert content="You have been validated" />
+<Alert content={$_("comp.role_validated.validated")} />
 {#await promise}
   <Loading />
 {:then elections}

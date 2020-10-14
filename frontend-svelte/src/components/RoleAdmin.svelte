@@ -4,6 +4,7 @@
   import ElectionVote from "./ElectionVote.svelte";
   import { get } from "../util";
   import type { Election } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   let promise: Promise<Election[]>;
   getElection();
@@ -22,12 +23,12 @@
 
 <UsersPagination
   unvalidated={true}
-  error="Could not get users pending validation"
+  error={$_("comp.role_admin.pending_err")}
   url="/api/users/unvalidated/get" />
 
 <h2>Validated users</h2>
 
 <UsersPagination
   unvalidated={false}
-  error="Could not get validated users"
+  error={$_("comp.role_admin.validated_err")}
   url="/api/users/validated/get" />

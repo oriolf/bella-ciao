@@ -2,68 +2,68 @@
   import { createEventDispatcher } from "svelte";
   import Form from "./Form.svelte";
   import type { FormParams } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   const dispatch = createEventDispatcher();
   let loggingIn: boolean = true;
 
   const loginForm: FormParams = {
-    name: "Log in",
+    name: "comp.login_form.login",
     url: "/api/auth/login",
-    generalError: "The user or the password are invalid",
+    generalError: "comp.login_form.login_err",
     fields: [
       {
         name: "unique_id",
-        hint: "Enter user (identification number: DNI, NIE, etc.)",
+        hint: "comp.login_form.unique_id_hint",
         required: true,
-        errString: "This field is required and must match a valid ID number format"
+        errString: "comp.login_form.unique_id_err"
       },
       {
         name: "password",
-        hint: "Password",
+        hint: "comp.login_form.password_hint",
         required: true,
         type: "password",
-        errString: "This field is required and must be eight or more characters long"
+        errString: "comp.login_form.password_err"
       },
     ],
   };
 
   const registerForm: FormParams = {
-    name: "Register",
+    name: "comp.login_form.register",
     url: "/api/auth/register",
-    generalError:
-      "The user is not a valid identification number (DNI, NIE...), the name or email are empty, or the passwords don't match",
+    generalError: "comp.login_form.register_err",
     fields: [
       {
         name: "unique_id",
-        hint: "Enter user (identification number: DNI, NIE, etc.)",
+        hint: "comp.login_form.unique_id_hint",
         required: true,
-        errString: "This field is required and must match a valid ID number format"
+        errString: "comp.login_form.unique_id_err"
       },
       {
         name: "name",
-        hint: "Enter your name",
+        hint: "comp.login_form.name_hint",
         required: true,
       },
       {
         name: "email",
-        hint: "Enter your email",
+        hint: "comp.login_form.email_hint",
         required: true,
         type: "email",
       },
       // TODO validate passwords match
       {
         name: "password",
-        hint: "Password",
+        hint: "comp.login_form.password_hint",
         required: true,
         type: "password",
-        errString: "This field is required and must match the repeat password field"
+        errString: "comp.login_form.register_password_err"
       },
       {
         name: "repeat_password",
-        hint: "Repeat password",
+        hint: "comp.login_form.repeat_password_hint",
         required: true,
         type: "password",
-        errString: "This field is required and must match the password field"
+        errString: "comp.login_form.register_password_err"
       },
     ],
   };
@@ -80,14 +80,14 @@
           on:click={(_) => {
             loggingIn = false;
           }}>
-          Register
+          {$_("comp.login_form.register")}
         </a>
       </Form>
     </div>
   </div>
 {:else}
   <div class="card">
-    <div class="card-header">Register</div>
+    <div class="card-header">{$_("comp.login_form.register")}</div>
     <div class="card-body">
       <Form
         params={registerForm}
@@ -100,7 +100,7 @@
           on:click={(_) => {
             loggingIn = true;
           }}>
-          Log in
+          {$_("comp.login_form.login")}
         </a>
       </Form>
     </div>

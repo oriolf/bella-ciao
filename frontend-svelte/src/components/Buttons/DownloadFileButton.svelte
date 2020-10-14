@@ -1,5 +1,7 @@
 <script lang="ts">
   import Button from "./Button.svelte";
+  import { _ } from "svelte-i18n";
+
   export let id: number;
   export let filename: string;
 
@@ -15,4 +17,4 @@
   }
 </script>
 
-<Button content="Download file" callback={() => downloadFile()} />
+<Button content={$_("comp.buttons.download_file")} callback={() => downloadFile()} />

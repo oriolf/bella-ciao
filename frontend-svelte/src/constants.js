@@ -4,7 +4,7 @@ export const COUNT_METHODS = [
 ];
 
 export const ID_FORMATS = [
-    { id: 'dni', name: 'Spanish DNI' },
-    { id: 'nie', name: 'Spanish NIE' },
-    { id: 'passport', name: 'Spanish passport' },
+    { id: 'dni', name: 'global.id_formats.dni' },
+    { id: 'nie', name: 'global.id_formats.nie' },
+    { id: 'passport', name: 'global.id_formats.passport' },
 ];

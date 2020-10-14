@@ -80,14 +80,13 @@
   }
 
   const checkVoteForm = {
-    name: "Check vote",
+    name: "comp.election_vote.form_name",
     url: "/api/elections/vote/check",
     fields: [
       {
         name: "token",
-        hint: "Enter the token that was given when you voted",
+        hint: "comp.election_vote.token",
         required: true,
-        errString: "This field is required",
       },
     ],
   };
@@ -108,24 +107,21 @@
   {#if $user.has_voted}
     {#if voteHash}
       <Alert
-        content="You vote has been recorded, you can check for which candidates did you vote by providing the following identifier: {voteHash}" />
+        content={$_("comp.election_vote.vote_confirmation", { values: { hash: voteHash } })} />
     {:else}
-      <Alert content="You have already voted" type="warning" />
+      <Alert content={$_("comp.election_vote.already_voted")} type="warning" />
       <div class="card" style="padding: 5px;">
         <div class="row">
           <div class="col-12">
             {#if !candidatesVotedFor}
-              <p>
-                You can check your vote by providing the identifier that was
-                shown to you when you voted:
-              </p>
+              <p>{$_("comp.election_vote.check_vote")}</p>
               <Form
                 params={checkVoteForm}
                 on:result={(res) => {
                   candidatesVotedFor = res.detail;
                 }} />
             {:else}
-              <p>You voted for the following candidates:</p>
+              <p>{$_("comp.election_vote.candidates_list")}</p>
               <ol>
                 {#each candidatesVotedFor as candidate}
                   <li>{candidate.name}</li>
@@ -140,15 +136,12 @@
     <div class="card" style="padding: 5px;">
       <div class="row">
         <div class="col-12">
-          <p>
-            You must select at least {election.min_candidates} candidates and up
-            to {election.max_candidates}.
-          </p>
+          <p>{$_("comp.election_vote.candidates_range", {values: { min: election.min_candidates, max: election.max_candidates }})}</p>
         </div>
       </div>
       <div class="row">
         <div class="col-6">
-          <h2>Candidates</h2>
+          <h2>{$_("comp.election_vote.candidates")}</h2>
 
           <CandidatesVoteList
             selected={false}
@@ -156,7 +149,7 @@
             on:select={select} />
         </div>
         <div class="col-6">
-          <h2>Selected candidates</h2>
+          <h2>{$_("comp.election_vote.selected_candidates")}</h2>
           <CandidatesVoteList
             selected={true}
             list={selectedCandidates}
@@ -166,13 +159,11 @@
         </div>
       </div>
       <div>
-        <Button content="Vote" callback={vote} disabled={disableVote} />
+        <Button content={$_("comp.election_vote.vote")} callback={vote} disabled={disableVote} />
       </div>
     </div>
   {/if}
 {:else}
-  <p>
-    The election has already ended, you can check the results here (TODO link to
-    results)"
-  </p>
+  <!-- TODO link to results page -->
+  <p>{$_("comp.election_vote.election_results")}</p>
 {/if}

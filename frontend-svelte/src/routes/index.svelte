@@ -1,5 +1,5 @@
 <script lang="ts">
-  // TODO translate all
+  // TODO change $_ for $t, wrap it with util func such that the comp.component_name prefix does not need to be repeated
   import LoginForm from "../components/LoginForm.svelte";
   import RoleNone from "../components/RoleNone.svelte";
   import RoleValidated from "../components/RoleValidated.svelte";

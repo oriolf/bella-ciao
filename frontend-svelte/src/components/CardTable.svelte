@@ -1,6 +1,7 @@
 <script lang="ts">
   import Loading from "./Loading.svelte";
   import Alert from "./Alert.svelte";
+  import { _ } from "svelte-i18n";
 
   export let headers: string[];
   export let rows: Promise<any[]>;
@@ -16,7 +17,7 @@
         <thead>
           <tr>
             {#each headers as header}
-              <th>{header}</th>
+              <th>{$_(header)}</th>
             {/each}
           </tr>
         </thead>
@@ -30,6 +31,6 @@
       </table>
     </div>
   {/if}
-{:catch _}
-  <Alert type="danger" content={error} />
+{:catch e}
+  <Alert type="danger" content={$_(error)} />
 {/await}

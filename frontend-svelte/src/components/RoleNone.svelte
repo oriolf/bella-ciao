@@ -6,23 +6,24 @@
   import UserFiles from "./UserFiles.svelte";
   import { get, sortByField } from "../util";
   import type { UserMessage, FormParams } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   let messages: Promise<UserMessage[]>;
   let reloadFiles: number = 0;
   let uploadFileForm: FormParams = {
-    name: "Upload file",
+    name: "comp.role_none.upload_file",
     values: "form",
     url: "/api/users/files/upload",
-    generalError: "Could not upload file",
+    generalError: "comp.role_none.upload_file_err",
     fields: [
       {
         name: "description",
-        hint: "Description of the file contents",
+        hint: "comp.role_none.description_hint",
         required: true,
       },
       {
         name: "file",
-        hint: "Upload file",
+        hint: "comp.role_none.upload_file",
         required: true,
         type: "file",
       },
@@ -42,38 +43,33 @@
   }
 </script>
 
-<Alert
-  content="You still have not been validated. Please review and solve the
-  validators' messages and upload the required files" />
+<Alert content={$_("comp.role_none.none_notice")} />
 
-<h2>Messages from validation</h2>
-<p>
-  Please review these messages, perform the requested action, and mark as solved
-  when done.
-</p>
+<h2>{$_("comp.role_none.messages_title")}</h2>
+<p>{$_("comp.role_none.messages_explanation")}</p>
 
 <CardTable
-  headers={['Message', '', '']}
+  headers={[$_("comp.role_none.messages_header"), '', '']}
   rows={messages}
   let:row
-  error="Could not obtain the validation messages">
+  error={$_("comp.role_none.messages_err")}>
   <td>{row.content}</td>
   <td>
     {#if row.solved}
-      <em>(already solved)</em>
+      <em>{$_("comp.role_none.solved")}</em>
     {:else}
-      <Button content="Mark as solved" callback={() => solveMessage(row.id)} />
+      <Button content={$_("comp.role_none.solve")} callback={() => solveMessage(row.id)} />
     {/if}
   </td>
 </CardTable>
 
-<h2>Uploaded files</h2>
-<p>Upload the required files and remove those that are no longer necessary.</p>
+<h2>{$_("comp.role_none.files_title")}</h2>
+<p>{$_("comp.role_none.files_explanation")}</p>
 
 <UserFiles {reloadFiles} />
 
 <div class="card">
-  <div class="card-header">Upload file</div>
+  <div class="card-header">{$_("comp.role_none.upload_file")}</div>
   <div class="card-body">
     <Form params={uploadFileForm} on:executed={() => (reloadFiles += 1)} />
   </div>

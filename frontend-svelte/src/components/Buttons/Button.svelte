@@ -5,7 +5,7 @@
   export let callback: () => Promise<any>;
   export let instant: () => void;
   export let type: string = "primary";
-  export let disabled = false;
+  export let disabled: boolean = false;
   let promise: Promise<any>;
   let classes: string = `align-middle btn btn-sm btn-outline-${type}`;
 

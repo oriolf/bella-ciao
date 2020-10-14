@@ -2,6 +2,7 @@
   import Error from "./_error.svelte";
   import Uninitialized from "../components/Uninitialized.svelte";
   import Loading from "../components/Loading.svelte";
+  import { _ } from "svelte-i18n";
 
   let promise: Promise<Response> = askUninitialized();
   async function askUninitialized(): Promise<Response> {
@@ -24,6 +25,6 @@
   <Loading />
 {:then _}
   <Uninitialized />
-{:catch _}
-  <p>Already initialized!</p>
+{:catch e}
+  <p>{$_("pages.initialize.error")}</p>
 {/await}

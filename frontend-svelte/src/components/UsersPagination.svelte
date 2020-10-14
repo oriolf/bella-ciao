@@ -7,6 +7,7 @@
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
   import { get, submitFormJSON } from "../util";
   import type { User } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   export let url: string;
   export let error: string;
@@ -32,18 +33,18 @@
 
   $: getUsers(page, query);
 
-  async function getUsers(pg, qry) {
+  async function getUsers(pg: number, qry: string) {
     response = get(
       `${url}?page=${pg}&items_per_page=${itemsPerPage}&query=${qry}`, null
     );
   }
 
-  async function validateUser(id) {
+  async function validateUser(id: number) {
     await fetch(`/api/users/validate?id=${id}`);
     getUsers(page, query);
   }
 
-  function beginAddMessage(userID) {
+  function beginAddMessage(userID: number) {
     userMessageID = userID;
     JQ("#addMessageModal").on("shown.bs.modal", function () {
       JQ("#userMessageInput").trigger("focus");
@@ -80,8 +81,8 @@
       <input
         type="text"
         class="form-control"
-        placeholder="Filter by user identifier"
-        aria-label="Filter by user identifier"
+        placeholder={$_("comp.users_pagination.filter_user_id")}
+        aria-label={$_("comp.users_pagination.filter_user_id")}
         aria-describedby="filter-users"
         on:keyup={debounceInput} />
     </div>
@@ -107,7 +108,7 @@
                   data-toggle="modal"
                   data-target="#addMessageModal"
                   on:click={() => beginAddMessage(user.id)}>
-                  Add message
+                  {$_("comp.users_pagination.add_message")}
                 </button>
               </div>
               <div class="col-3">
@@ -121,7 +122,7 @@
 
           <div class="row">
             <div class="col-12">
-              <h6>Files</h6>
+              <h6>{$_("comp.users_pagination.files")}</h6>
             </div>
           </div>
 
@@ -143,7 +144,7 @@
 
           <div class="row">
             <div class="col-12">
-              <h6>Messages</h6>
+              <h6>{$_("comp.users_pagination.messages")}</h6>
             </div>
           </div>
 
@@ -151,9 +152,9 @@
             <div class="row" style="margin: 2px 0 0 5px;">
               <div class="col-12">
                 {#if message.solved}
-                  <span class="badge badge-primary">Already solved</span>
+                  <span class="badge badge-primary">{$_("comp.users_pagination.solved")}</span>
                 {:else}
-                  <span class="badge badge-warning">Not solved yet</span>
+                  <span class="badge badge-warning">{$_("comp.users_pagination.not_solved")}</span>
                 {/if}
                 {message.content}
               </div>
@@ -179,7 +180,7 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="addMessageModalLabel">Add message</h5>
+        <h5 class="modal-title" id="addMessageModalLabel">{$_("comp.users_pagination.add_message")}</h5>
       </div>
       <div class="modal-body">
         <div class="form-group">
@@ -194,9 +195,9 @@
         <button
           type="button"
           class="btn btn-secondary"
-          data-dismiss="modal">Close</button>
+          data-dismiss="modal">{$_("comp.users_pagination.close")}</button>
         <button type="button" class="btn btn-primary" on:click={addMessage}>
-          Add message
+          {$_("comp.users_pagination.add_message")}
         </button>
       </div>
     </div>

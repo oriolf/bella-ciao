@@ -3,6 +3,7 @@
   import { COUNT_METHODS, ID_FORMATS } from "../constants.js";
   import { validateArrayLengthPositive } from "../util";
   import type { StringMap, FormParams, JsonValue } from "../types/models.type";
+  import { _ } from "svelte-i18n";
 
   function siteInitialized() {
     window.location.href = "/";
@@ -37,77 +38,75 @@
   }
 
   let candidateForm: FormParams = {
-    name: "Initialize",
+    name: "comp.uninitialized.initialize",
     url: "/api/initialize",
-    generalError: "Could not initialize site",
+    generalError: "comp.uninitialized.initialize_err",
     jsonFunc: groupParameters,
     fields: [
       // Admin fields
       {
         name: "unique_id",
-        title: "Admin's unique ID",
-        hint: "Enter admin unique ID",
+        title: "comp.uninitialized.unique_id_title",
+        hint: "comp.uninitialized.unique_id_hint",
         required: true,
-        errString:
-          "This field is required and must match a valid ID number format",
+        errString: "comp.uninitialized.unique_id_err",
       },
       {
         name: "name",
-        title: "Admin name",
-        hint: "Enter the admin's name",
+        title: "comp.uninitialized.name_title",
+        hint: "comp.uninitialized.name_hint",
         required: true,
       },
       {
         name: "email",
-        title: "Admin email",
-        hint: "Enter the admin's email",
+        title: "comp.uninitialized.email_title",
+        hint: "comp.uninitialized.email_hint",
         required: true,
         type: "email",
       },
       // TODO validate passwords match
       {
         name: "password",
-        title: "Admin password",
-        hint: "Password",
+        title: "comp.uninitialized.password_title",
+        hint: "comp.uninitialized.password_hint",
         required: true,
         type: "password",
-        errString:
-          "This field is required and must match the repeat password field",
+        errString: "comp.uninitialized.password_err",
       },
       {
         name: "repeat_password",
-        title: "Repeat password",
-        hint: "Repeat password",
+        title: "comp.uninitialized.rpassword_title",
+        hint: "comp.uninitialized.rpassword_hint",
         required: true,
         type: "password",
-        errString: "This field is required and must match the password field",
+        errString: "comp.uninitialized.password_err",
       },
       // Election fields
       {
         name: "election_name",
-        title: "Election's name",
-        hint: "Enter the election's name",
+        title: "comp.uninitialized.election_name_title",
+        hint: "comp.uninitialized.election_name_hint",
         required: true,
       },
       // TODO start should be before end and before now()
       {
         name: "start",
-        title: "Election start",
-        hint: "Date and time of election start",
+        title: "comp.uninitialized.start_title",
+        hint: "comp.uninitialized.start_hint",
         required: true,
         type: "datetime",
       },
       {
         name: "end",
-        title: "Election end",
-        hint: "Date and time of election end",
+        title: "comp.uninitialized.end_title",
+        hint: "comp.uninitialized.end_hint",
         required: true,
         type: "datetime",
       },
       {
         name: "count_method",
-        title: "Vote's count method",
-        hint: "Vote count method to use",
+        title: "comp.uninitialized.count_method_title",
+        hint: "comp.uninitialized.count_method_hint",
         required: true,
         type: "select",
         options: COUNT_METHODS,
@@ -115,32 +114,29 @@
       // TODO min should be less or equal to max
       {
         name: "min_candidates",
-        title: "Mimimum candidates to vote for",
-        hint: "The minimum number of candidates to select",
+        title: "comp.uninitialized.min_candidates_title",
+        hint: "comp.uninitialized.min_candidates_hint",
         required: true,
         type: "number",
-        errString:
-          "This field is required, must be greater than zero and less or equal to the maximum candidates",
+        errString: "comp.uninitialized.min_candidates_err",
       },
       {
         name: "max_candidates",
-        title: "Maximum candidates to vote for",
-        hint: "The maximum number of candidates to select",
+        title: "comp.uninitialized.max_candidates_title",
+        hint: "comp.uninitialized.max_candidates_hint",
         required: true,
         type: "number",
-        errString:
-          "This field is required, must be greater than zero and greater or equal to the minimum candidates",
+        errString: "comp.uninitialized.max_candidates_err",
       },
       // Config fields
       {
         name: "id_formats",
-        title: "Allowed identification formats",
-        hint: "The allowed identification formats for registration",
+        title: "comp.uninitialized.id_formats_title",
+        hint: "comp.uninitialized.id_formats_hint",
         required: true,
         type: "multiselect",
         options: ID_FORMATS,
-        errString:
-          "This field is required, you should select at least one format",
+        errString: "comp.uninitialized.id_formats_err",
         validate: validateArrayLengthPositive,
       },
     ],
@@ -148,7 +144,7 @@
 </script>
 
 <div class="card">
-  <div class="card-header">Initialize</div>
+  <div class="card-header">{$_("comp.uninitialized.initialize")}</div>
   <div class="card-body">
     <Form params={candidateForm} on:executed={siteInitialized} />
   </div>
