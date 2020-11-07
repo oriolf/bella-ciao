@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -134,27 +133,27 @@ func main() {
 func bootstrap() error {
 	db, err := sql.Open("sqlite3", DB_FILE)
 	if err != nil {
-		return fmt.Errorf("error during database connection: %w", err)
+		return wrapError(err, 126, "error during database connection")
 	}
 	defer db.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("error beginning transaction: %w", err)
+		return wrapError(err, 127, "error beginning transaction")
 	}
 
 	if err := InitDB(tx); err != nil {
-		return fmt.Errorf("error during database initialization: %w", err)
+		return wrapError(err, 128, "error during database initialization")
 	}
 
 	count, err := countElections(tx)
 	if err != nil {
-		return fmt.Errorf("could not count elections in check initialized: %w", err)
+		return wrapError(err, 129, "could not count elections in check initialized")
 	}
 
 	if err := tx.Commit(); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("could not commit transaction: %w", err)
+		return wrapError(err, 130, "could not commit transaction")
 	}
 
 	if count > 0 {
@@ -164,7 +163,7 @@ func bootstrap() error {
 	for _, folder := range []string{UPLOADS_FOLDER, SESSIONS_FOLDER} {
 		if _, err := os.Stat(folder); err != nil {
 			if err := os.Mkdir(folder, 0755); err != nil {
-				return fmt.Errorf("could not create %s folder: %w", folder, err)
+				return wrapError(err, 131, "could not create %s folder", folder)
 			}
 		}
 	}
@@ -178,9 +177,6 @@ func bootstrap() error {
 	go periodicFunc(checkElectionsCount, time.Minute)
 
 	return nil
-}
-
-func checkInitialized(db *sql.Tx) {
 }
 
 func getInitialized() bool {
@@ -222,7 +218,7 @@ func handler(
 		params, err := paramsFunc(r)
 		if err != nil {
 			log.Printf("[%d] Error validating parameters: %s\n", n, err)
-			http.Error(w, "", http.StatusBadRequest)
+			http.Error(w, frontendError(err), http.StatusBadRequest)
 			return
 		}
 
@@ -232,13 +228,13 @@ func handler(
 		}
 		defer db.Close()
 
-		requestMutex.Lock() // TODO using transactions implies that if we receive concurrent requests, one of the two will fale due to "database is locked" error, so we avoid it
+		requestMutex.Lock() // TODO using transactions implies that if we receive concurrent requests, one of the two will fale due to "database is locked" error, so we avoid it by locking, but maybe we could ignore the lock when the request is just a read
 		defer requestMutex.Unlock()
 
 		tx, err := db.Begin()
 		if err != nil {
 			log.Printf("[%d] Could not begin transaction: %s\n", n, err)
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, frontendError(err), http.StatusInternalServerError)
 			return
 		}
 
@@ -246,21 +242,21 @@ func handler(
 		if err := authFunc(tx, user, params, err); err != nil { // auth func validates permissions too
 			log.Printf("[%d] Error during authorization: %s\n", n, err)
 			rollback(n, tx)
-			http.Error(w, "", http.StatusUnauthorized)
+			http.Error(w, frontendError(err), http.StatusUnauthorized)
 			return
 		}
 
 		if err := handleFunc(r, w, tx, user, params); err != nil {
 			log.Printf("[%d] Error handling request: %s\n", n, err)
 			rollback(n, tx)
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, frontendError(err), http.StatusInternalServerError)
 			return
 		}
 
 		if err := tx.Commit(); err != nil {
 			log.Printf("[%d] Error commiting transaction: %s.", n, err)
 			rollback(n, tx)
-			http.Error(w, "", http.StatusInternalServerError)
+			http.Error(w, frontendError(err), http.StatusInternalServerError)
 		}
 	}
 }
@@ -295,33 +291,33 @@ func checkElectionsCount() {
 func checkElectionsCountAux() error {
 	db, err := sql.Open("sqlite3", DB_FILE)
 	if err != nil {
-		return fmt.Errorf("could not open connection to db: %w", err)
+		return wrapError(err, 132, "could not open connection to db")
 	}
 	defer db.Close()
 
 	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("could not begin transaction: %w", err)
+		return wrapError(err, 133, "could not begin transaction")
 	}
 
 	elections, err := getElections(tx, true)
 	if err != nil {
 		tx.Rollback()
-		return fmt.Errorf("could not get elections: %w", err)
+		return wrapError(err, 134, "could not get elections")
 	}
 
 	for _, e := range elections {
 		if now().After(e.End) && !e.Counted {
 			if err := countElection(tx, e); err != nil {
 				tx.Rollback()
-				return fmt.Errorf("could not count election %d: %w", e.ID, err)
+				return wrapError(err, 135, "could not count election %d", e.ID)
 			}
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("could not commit transaction: %w", err)
+		return wrapError(err, 136, "could not commit transaction")
 	}
 
 	return nil
@@ -330,7 +326,7 @@ func checkElectionsCountAux() error {
 func countElection(tx *sql.Tx, e Election) error {
 	vs, err := getVotes(tx, e.ID)
 	if err != nil {
-		return fmt.Errorf("could not get votes: %w", err)
+		return wrapError(err, 137, "could not get votes")
 	}
 
 	votes := make([][]int, 0, len(vs))
@@ -340,17 +336,17 @@ func countElection(tx *sql.Tx, e Election) error {
 
 	results, err := countVotes(len(e.Candidates), votes, e.CountMethod)
 	if err != nil {
-		return fmt.Errorf("could not count votes: %w", err)
+		return wrapError(err, 138, "could not count votes")
 	}
 
 	for candidateID, points := range results {
 		if err := updateCandidatePoints(tx, candidateID, points); err != nil {
-			return fmt.Errorf("could not update points for candidate %d: %w", candidateID, err)
+			return wrapError(err, 139, "could not update points for candidate %d", candidateID)
 		}
 	}
 
 	if err := setElectionCounted(tx, e.ID); err != nil {
-		return fmt.Errorf("could not set election %d as counted: %w", e.ID, err)
+		return wrapError(err, 140, "could not set election %d as counted", e.ID)
 	}
 
 	return nil

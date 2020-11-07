@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -38,7 +37,7 @@ func InitDB(db *sql.Tx) error {
 	}
 	for i, table := range types {
 		if _, err := db.Exec(table.CreateTableQuery()); err != nil {
-			return fmt.Errorf("error executing init query %d: %w", i, err)
+			return wrapError(err, 93, fmt.Sprintf("error executing init query %d", i))
 		}
 	}
 
@@ -52,17 +51,17 @@ func scanElection(rows *sql.Rows) (interface{}, error) {
 	var start, end string
 	err := rows.Scan(&e.ID, &e.Name, &start, &end, &e.CountMethod, &e.MaxCandidates, &e.MinCandidates, &e.Public, &e.Counted)
 	if err != nil {
-		return nil, fmt.Errorf("could not scan: %w", err)
+		return nil, wrapError(err, 94, "could not scan")
 	}
 
 	e.Start, err = time.Parse(SQLITE_TIME_FORMAT, start)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse start: %w", err)
+		return nil, wrapError(err, 95, "could not parse start")
 	}
 
 	e.End, err = time.Parse(SQLITE_TIME_FORMAT, end)
 	if err != nil {
-		return nil, fmt.Errorf("could not parse end: %w", err)
+		return nil, wrapError(err, 96, "could not parse end")
 	}
 
 	return e, nil
@@ -72,11 +71,11 @@ func scanVote(rows *sql.Rows) (interface{}, error) {
 	var v Vote
 	err := rows.Scan(&v.ID, &v.ElectionID, &v.Hash, &v.CandidatesString)
 	if err != nil {
-		return nil, fmt.Errorf("could not scan: %w", err)
+		return nil, wrapError(err, 97, "could not scan")
 	}
 
 	if err := json.Unmarshal([]byte(v.CandidatesString), &v.Candidates); err != nil {
-		return nil, fmt.Errorf("could not unmarshal candidates: %w", err)
+		return nil, wrapError(err, 98, "could not unmarshal candidates")
 	}
 
 	v.CandidatesString = ""
@@ -130,7 +129,7 @@ func scanID(rows *sql.Rows) (interface{}, error) {
 func queryDB(db *sql.Tx, scanFunc func(rows *sql.Rows) (interface{}, error), stmt string, args ...interface{}) ([]interface{}, error) {
 	rows, err := db.Query(stmt, args...)
 	if err != nil {
-		return nil, fmt.Errorf("error during query: %w", err)
+		return nil, wrapError(err, 99, "error during query")
 	}
 	defer rows.Close()
 
@@ -139,14 +138,14 @@ func queryDB(db *sql.Tx, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 	for rows.Next() {
 		x, err := scanFunc(rows)
 		if err != nil {
-			return nil, fmt.Errorf("error scaning row %d: %w", i, err)
+			return nil, wrapError(err, 100, "error scaning row %d", i)
 		}
 		res = append(res, x)
 		i += 1
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("final error in rows: %w", err)
+		return nil, wrapError(err, 101, "final error in rows")
 	}
 
 	return res, nil
@@ -155,16 +154,16 @@ func queryDB(db *sql.Tx, scanFunc func(rows *sql.Rows) (interface{}, error), stm
 func countDB(db *sql.Tx, query string, args ...interface{}) (int, error) {
 	results, err := queryDB(db, scanCount, query, args...)
 	if err != nil {
-		return 0, fmt.Errorf("error querying count: %w", err)
+		return 0, wrapError(err, 102, "error querying count")
 	}
 
 	if len(results) != 1 {
-		return 0, errors.New("unexpected number of count results")
+		return 0, traceError{id: 20, message: "unexpected number of count results"}
 	}
 
 	count, ok := results[0].(int)
 	if !ok {
-		return 0, errors.New("unexpected count type")
+		return 0, traceError{id: 21, message: "unexpected count type"}
 	}
 
 	return count, nil
@@ -212,12 +211,12 @@ func updateConfig(db *sql.Tx, c Config) error {
 func execConfig(db *sql.Tx, c Config, query, action string) error {
 	b, err := json.Marshal(c.IDFormats)
 	if err != nil {
-		return fmt.Errorf("could not marshal id formats: %w", err)
+		return wrapError(err, 103, "could not marshal id formats")
 	}
 
 	_, err = db.Exec(query, string(b))
 	if err != nil {
-		return fmt.Errorf("could not %s config: %w", action, err)
+		return wrapError(err, 104, "could not %s config", action)
 	}
 
 	return nil
@@ -226,10 +225,10 @@ func execConfig(db *sql.Tx, c Config, query, action string) error {
 func getConfig(db *sql.Tx) (c Config, err error) {
 	err = db.QueryRow("SELECT id_formats FROM config WHERE id=1;").Scan(&c.IDFormatsString)
 	if err != nil {
-		return c, fmt.Errorf("could not query row: %w", err)
+		return c, wrapError(err, 105, "could not query row")
 	}
 	if err := json.Unmarshal([]byte(c.IDFormatsString), &c.IDFormats); err != nil {
-		return c, fmt.Errorf("could not unmarshal id formats: %w", err)
+		return c, wrapError(err, 106, "could not unmarshal id formats")
 	}
 	return c, nil
 }
@@ -251,12 +250,12 @@ func getUserFromUniqueID(db *sql.Tx, uniqueID string) (user User, err error) {
 func getUserFilesAndMessages(db *sql.Tx, id int) (files []UserFile, messages []UserMessage, err error) {
 	files, err = getUserFiles(db, id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get files: %w", err)
+		return nil, nil, wrapError(err, 107, "could not get files")
 	}
 
 	messages, err = getUserMessages(db, id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("could not get messages: %w", err)
+		return nil, nil, wrapError(err, 108, "could not get messages")
 	}
 
 	return files, messages, nil
@@ -265,7 +264,7 @@ func getUserFilesAndMessages(db *sql.Tx, id int) (files []UserFile, messages []U
 func getUserFiles(db *sql.Tx, id int) (files []UserFile, err error) {
 	fs, err := queryDB(db, scanUserFile, "SELECT id, name, description FROM files WHERE user_id = ?;", id)
 	if err != nil {
-		return nil, fmt.Errorf("could not select: %w", err)
+		return nil, wrapError(err, 109, "could not select")
 	}
 	files = make([]UserFile, 0)
 	for _, x := range fs {
@@ -304,7 +303,7 @@ func getUsers(db *sql.Tx, where, query string, limit, offset int) (response getU
 		total, err = countDB(db, countSQL)
 	}
 	if err != nil {
-		return getUsersResponse{}, fmt.Errorf("could not count users: %w", err)
+		return getUsersResponse{}, wrapError(err, 110, "could not count users")
 	}
 
 	sql := fmt.Sprintf(`SELECT users.id, users.unique_id, users.name, users.email, users.role, users.has_voted,
@@ -321,7 +320,7 @@ func getUsers(db *sql.Tx, where, query string, limit, offset int) (response getU
 		res, err = queryDB(db, scanQueriedUser, sql)
 	}
 	if err != nil {
-		return getUsersResponse{}, fmt.Errorf("could not query db: %w", err)
+		return getUsersResponse{}, wrapError(err, 111, "could not query db")
 	}
 
 	m := make(map[int]User)
@@ -366,7 +365,7 @@ func addMessage(db *sql.Tx, m UserMessage) error {
 func getUserMessages(db *sql.Tx, id int) (messages []UserMessage, err error) {
 	ms, err := queryDB(db, scanUserMessage, "SELECT id, content, solved FROM messages WHERE user_id = ?;", id)
 	if err != nil {
-		return nil, fmt.Errorf("could not get messages: %w", err)
+		return nil, wrapError(err, 112, "could not get messages")
 	}
 	messages = make([]UserMessage, 0)
 	for _, x := range ms {
@@ -399,7 +398,7 @@ func getCandidatesFromIDs(db *sql.Tx, ids []int) ([]Candidate, error) {
 		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE id IN (%s);`,
 		strings.Join(candidateIDs, ",")))
 	if err != nil {
-		return nil, fmt.Errorf("could not get candidates: %w", err)
+		return nil, wrapError(err, 113, "could not get candidates")
 	}
 
 	candidates := make([]Candidate, 0, len(results))
@@ -417,7 +416,7 @@ func updateCandidatePoints(db *sql.Tx, candidateID int, points float64) error {
 func getAvailableCandidates(db *sql.Tx, electionID int) (map[int]struct{}, error) {
 	res, err := queryDB(db, scanID, `SELECT id FROM candidates WHERE election_id = ?;`, electionID)
 	if err != nil {
-		return nil, fmt.Errorf("could not select candidate's ids: %w", err)
+		return nil, wrapError(err, 114, "could not select candidate's ids")
 	}
 	m := make(map[int]struct{}, len(res))
 	for _, x := range res {
@@ -451,7 +450,7 @@ func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 		SELECT id, name, date_start, date_end, count_method, max_candidates, min_candidates, public, counted
 		FROM elections WHERE public OR public = ? ORDER BY date_start ASC;`, onlyPublic)
 	if err != nil {
-		return nil, fmt.Errorf("error querying elections: %w", err)
+		return nil, wrapError(err, 115, "error querying elections")
 	}
 
 	var electionIDs []int
@@ -471,7 +470,7 @@ func getElections(db *sql.Tx, onlyPublic bool) ([]Election, error) {
 		SELECT id, election_id, name, presentation, image, points FROM candidates WHERE election_id IN (%s) ORDER BY random();`,
 		strings.Join(elIDstring, ",")))
 	if err != nil {
-		return nil, fmt.Errorf("error querying candidates: %w", err)
+		return nil, wrapError(err, 116, "error querying candidates")
 	}
 
 	for _, x := range results {
@@ -503,16 +502,16 @@ func setElectionCounted(db *sql.Tx, electionID int) error {
 func updateOneRecord(db *sql.Tx, query string, args ...interface{}) error {
 	res, err := db.Exec(query, args...)
 	if err != nil {
-		return fmt.Errorf("could not execute update: %w", err)
+		return wrapError(err, 117, "could not execute update")
 	}
 
 	n, err := res.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("could not count rows affected: %w", err)
+		return wrapError(err, 118, "could not count rows affected")
 	}
 
 	if n != 1 {
-		return fmt.Errorf("updated %d rows", n)
+		return wrapError(nil, 119, "updated %d rows", n)
 	}
 
 	return nil
@@ -525,12 +524,12 @@ func setUserVoted(db *sql.Tx, userID int) error {
 func insertVote(db *sql.Tx, electionID int, candidates []int, hash string) error {
 	b, err := json.Marshal(candidates)
 	if err != nil {
-		return fmt.Errorf("could not marshal candidates: %w", err)
+		return wrapError(err, 120, "could not marshal candidates")
 	}
 
 	_, err = db.Exec("INSERT INTO votes (election_id, hash, candidates) VALUES (?, ?, ?);", electionID, hash, string(b))
 	if err != nil {
-		return fmt.Errorf("could not insert vote: %w", err)
+		return wrapError(err, 121, "could not insert vote")
 	}
 
 	return nil
@@ -553,11 +552,11 @@ func getVotes(db *sql.Tx, electionID int) ([]Vote, error) {
 func getVoteFromHash(db *sql.Tx, hash string) (Vote, error) {
 	results, err := queryDB(db, scanVote, "SELECT id, election_id, hash, candidates FROM votes WHERE hash=?;", hash)
 	if err != nil {
-		return Vote{}, fmt.Errorf("could not get vote: %w", err)
+		return Vote{}, wrapError(err, 122, "could not get vote")
 	}
 
 	if len(results) != 1 {
-		return Vote{}, fmt.Errorf("expected 1 vote, got %d", len(results))
+		return Vote{}, wrapError(nil, 123, "expected 1 vote, got %d", len(results))
 	}
 
 	return results[0].(Vote), nil
@@ -577,10 +576,10 @@ func resourceOwnedByUser(db *sql.Tx, resourceName string, resourceID, userID int
 	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE id = ? AND user_id = ?;", resourceName)
 	n, err := countDB(db, query, resourceID, userID)
 	if err != nil {
-		return fmt.Errorf("error counting: %w", err)
+		return wrapError(err, 124, "error counting")
 	}
 	if n == 0 {
-		return errors.New("resource not owned")
+		return traceError{id: 22, message: "resource not owned"}
 	}
 	return nil
 }
@@ -591,7 +590,7 @@ func getAllUsers(db *sql.Tx) (users []User, err error) {
 	query := "SELECT id, unique_id, name, email, role, has_voted FROM users;"
 	res, err := queryDB(db, scanUser, query)
 	if err != nil {
-		return nil, fmt.Errorf("could not query db: %w", err)
+		return nil, wrapError(err, 125, "could not query db")
 	}
 
 	for _, x := range res {

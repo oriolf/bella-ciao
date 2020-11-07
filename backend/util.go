@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,22 +28,22 @@ func getRequestUser(r *http.Request, w http.ResponseWriter, tx *sql.Tx) (*User, 
 	session, err := store.Get(r, "bella-ciao")
 	if err != nil {
 		session.Save(r, w) // replace old inexistent session so error does not repeat
-		return nil, fmt.Errorf("could not get session: %w", err)
+		return nil, wrapError(err, 31, "could not get session")
 	}
 
 	id, ok := session.Values["user_id"]
 	if !ok {
-		return nil, errors.New("did not find user_id key")
+		return nil, traceError{id: 1, message: "did not find user_id key"}
 	}
 
 	userID, ok := id.(int)
 	if !ok {
-		return nil, errors.New("wrong type for user_id")
+		return nil, traceError{id: 2, message: "wrong type for user_id"}
 	}
 
 	user, err := getUser(tx, userID)
 	if err != nil {
-		return nil, fmt.Errorf("could not get user: %w", err)
+		return nil, wrapError(err, 32, "could not get user")
 	}
 
 	return &user, err
@@ -60,7 +59,7 @@ func requireLogin(db *sql.Tx, user *User, values par.Values, err error) error {
 
 func validatedUser(db *sql.Tx, user *User, values par.Values, err error) error {
 	if user.Role == ROLE_NONE {
-		return errors.New("none role")
+		return traceError{id: 3, message: "none role"}
 	}
 
 	return nil
@@ -68,7 +67,7 @@ func validatedUser(db *sql.Tx, user *User, values par.Values, err error) error {
 
 func adminUser(db *sql.Tx, user *User, values par.Values, err error) error {
 	if user.Role != ROLE_ADMIN {
-		return errors.New("non admin role")
+		return traceError{id: 4, message: "non admin role"}
 	}
 
 	return nil
@@ -77,7 +76,7 @@ func adminUser(db *sql.Tx, user *User, values par.Values, err error) error {
 func fileOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err error) error {
 	if user.Role != ROLE_ADMIN {
 		if err := checkFileOwnedByUser(db, values.Int("id"), user.ID); err != nil {
-			return fmt.Errorf("not admin and file not owned: %w", err)
+			return wrapError(err, 33, "not admin and file not owned")
 		}
 	}
 
@@ -87,7 +86,7 @@ func fileOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err error) 
 func messageOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err error) error {
 	if user.Role != ROLE_ADMIN {
 		if err := checkMessageOwnedByUser(db, values.Int("id"), user.ID); err != nil {
-			return fmt.Errorf("not admin and message not owned: %w", err)
+			return wrapError(err, 34, "not admin and message not owned")
 		}
 	}
 
@@ -97,16 +96,16 @@ func messageOwnerOrAdminUser(db *sql.Tx, user *User, values par.Values, err erro
 func electionDidNotStart(db *sql.Tx, user *User, values par.Values, err error) error {
 	elections, err := getElections(db, false)
 	if err != nil {
-		return fmt.Errorf("could not get elections: %w", err)
+		return wrapError(err, 35, "could not get elections")
 	}
 
 	if len(elections) != 1 {
-		return errors.New("expected just one election")
+		return traceError{id: 5, message: "expected just one election"}
 	}
 
 	e := elections[0]
 	if now().After(e.Start) {
-		return errors.New("election already started")
+		return traceError{id: 6, message: "election already started"}
 	}
 
 	return nil
@@ -116,7 +115,7 @@ func validIDFormats(db *sql.Tx, user *User, values par.Values, err error) error 
 	uniqueID := values.String("unique_id")
 	config, err := getConfig(db)
 	if err != nil {
-		return fmt.Errorf("could not get config: %w", err)
+		return wrapError(err, 36, "could not get config")
 	}
 
 	for _, idFormat := range config.IDFormats {
@@ -130,7 +129,7 @@ func validIDFormats(db *sql.Tx, user *User, values par.Values, err error) error 
 		}
 	}
 
-	return errors.New("unique_id did not validate any format")
+	return traceError{id: 7, message: "unique_id did not validate any format"}
 }
 
 func IsAdmin(user *User) bool {
@@ -140,12 +139,12 @@ func IsAdmin(user *User) bool {
 func GetSaltAndHashPassword(pass string) (string, string, error) {
 	salt, err := SafeID()
 	if err != nil {
-		return "", "", fmt.Errorf("could not generate salt: %w", err)
+		return "", "", wrapError(err, 37, "could not generate salt")
 	}
 
 	password, err := HashPassword(pass, salt)
 	if err != nil {
-		return "", "", fmt.Errorf("could not hash password: %w", err)
+		return "", "", wrapError(err, 38, "could not hash password")
 	}
 
 	return password, salt, nil
@@ -155,10 +154,10 @@ func SafeID() (string, error) {
 	b := make([]byte, 32)
 	n, err := rand.Read(b)
 	if err != nil {
-		return "", fmt.Errorf("can't read from crypto/rand: %w", err)
+		return "", wrapError(err, 39, "can't read from crypto/rand")
 	}
 	if n != len(b) {
-		return "", errors.New("wrong length read from crypto/rand")
+		return "", traceError{id: 8, message: "wrong length read from crypto/rand"}
 	}
 
 	return hex.EncodeToString(b), nil
@@ -167,11 +166,11 @@ func SafeID() (string, error) {
 func HashPassword(pass, salt string) (string, error) {
 	bsalt, err := hex.DecodeString(salt)
 	if err != nil {
-		return "", errors.New("invalid salt")
+		return "", traceError{id: 9, message: "invalid salt"}
 	}
 	bdk, err := scrypt.Key([]byte(pass), bsalt, 32768, 8, 1, 32)
 	if err != nil {
-		return "", errors.New("scrypt error")
+		return "", traceError{id: 10, message: "scrypt error"}
 	}
 	return hex.EncodeToString(bdk), nil
 }
@@ -179,11 +178,11 @@ func HashPassword(pass, salt string) (string, error) {
 func ValidatePassword(pass, dbpass, salt string) error {
 	hashed, err := HashPassword(pass, salt)
 	if err != nil {
-		return fmt.Errorf("error hashing password: %w", err)
+		return wrapError(err, 40, "error hashing password")
 	}
 
 	if hashed != dbpass {
-		return errors.New("invalid password")
+		return traceError{id: 11, message: "invalid password"}
 	}
 
 	return nil
@@ -192,12 +191,12 @@ func ValidatePassword(pass, dbpass, salt string) error {
 func WriteResult(w http.ResponseWriter, result interface{}) error {
 	js, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("could not marshal result: %w", err)
+		return wrapError(err, 41, "could not marshal result")
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	if _, err := w.Write(js); err != nil {
-		return fmt.Errorf("could not write result: %w", err)
+		return wrapError(err, 42, "could not write result")
 	}
 
 	return nil
@@ -206,12 +205,12 @@ func WriteResult(w http.ResponseWriter, result interface{}) error {
 func validateElectionParams(v par.Values) error {
 	start, end, now := v.Time("start"), v.Time("end"), now()
 	if start.After(end) || end.Before(start) || start.Before(now) {
-		return errors.New("election should end after it starts")
+		return traceError{id: 12, message: "election should end after it starts"}
 	}
 
 	min, max := v.Int("min_candidates"), v.Int("max_candidates")
 	if min > max {
-		return errors.New("minimum number of candidates cannot be greater than maximum")
+		return traceError{id: 13, message: "minimum number of candidates cannot be greater than maximum"}
 	}
 
 	return nil
@@ -225,7 +224,7 @@ func safeCreateFile(folder, filename string) (*os.File, string, error) {
 	if err == nil {
 		alternativeName, err := getAlternativeFilename(folder, filename)
 		if err != nil {
-			return nil, "", fmt.Errorf("could not get alternative filename: %w", err)
+			return nil, "", wrapError(err, 43, "could not get alternative filename")
 		}
 		f, err := os.Create(filepath.Join(folder, alternativeName))
 		return f, alternativeName, err
@@ -234,13 +233,13 @@ func safeCreateFile(folder, filename string) (*os.File, string, error) {
 		return f, filename, err
 	}
 
-	return nil, "", fmt.Errorf("could not check if file already existed: %w", err)
+	return nil, "", wrapError(err, 44, "could not check if file already existed")
 }
 
 func getAlternativeFilename(folder, filename string) (string, error) {
 	files, err := ioutil.ReadDir(folder)
 	if err != nil {
-		return "", fmt.Errorf("could not read dir: %w", err)
+		return "", wrapError(err, 45, "could not read dir")
 	}
 
 	filenames := make(map[string]struct{})
@@ -256,7 +255,7 @@ func getAlternativeFilename(folder, filename string) (string, error) {
 		}
 	}
 
-	return "", errors.New("impossible to find alternative")
+	return "", traceError{id: 14, message: "impossible to find alternative"}
 }
 
 func getNameAndExtension(filename string) (string, string) {
@@ -292,7 +291,7 @@ var dniLetters = "TRWAGMYFPDXBNJZSQVHLCKE"
 
 func validateDNI(s string) error {
 	if !dniRegex.MatchString(s) {
-		return errors.New("does not validate dni format")
+		return traceError{id: 15, message: "does not validate dni format"}
 	}
 
 	return controlCharacterMatches(s)
@@ -301,12 +300,12 @@ func validateDNI(s string) error {
 func controlCharacterMatches(s string) error {
 	index, err := strconv.Atoi(s[:8])
 	if err != nil {
-		return fmt.Errorf("could not sum digits: %w", err)
+		return wrapError(err, 46, "could not sum digits")
 	}
 
 	index = index % 23
 	if s[8:9] != dniLetters[index:index+1] {
-		return errors.New("control character does not match")
+		return traceError{id: 16, message: "control character does not match"}
 	}
 
 	return nil
@@ -316,7 +315,7 @@ var nieRegex = regexp.MustCompile("^[XYZ][0-9]{7}[A-Z]$")
 
 func validateNIE(s string) error {
 	if !nieRegex.MatchString(s) {
-		return errors.New("does not validate nie format")
+		return traceError{id: 17, message: "does not validate nie format"}
 	}
 
 	start := s[:8]
@@ -332,7 +331,7 @@ var passportRegex = regexp.MustCompile("^[A-Z]{3}[0-9]{6}[A-Z]$")
 
 func validatePassport(s string) error {
 	if !passportRegex.MatchString(s) {
-		return errors.New("does not validate passport format")
+		return traceError{id: 18, message: "does not validate passport format"}
 	}
 
 	return nil
@@ -379,7 +378,7 @@ func countVotes(totalCandidates int, votes [][]int, countMethod string) (map[int
 		COUNT_DOWDALL: countDowdall,
 	}[countMethod]
 	if !ok {
-		return nil, errors.New("unknown count method")
+		return nil, traceError{id: 19, message: "unknown count method"}
 	}
 
 	points := make(map[int]float64, totalCandidates)
@@ -399,4 +398,43 @@ func countBorda(index, totalCandidates int) float64 {
 
 func countDowdall(index, totalCandidates int) float64 {
 	return 1.0 / float64(index+1) // 1 for the first, 0.5 for the second, 0.333... for the third, etc.
+}
+
+type traceError struct {
+	id      int
+	message string
+	parent  error
+}
+
+func wrapError(err error, id int, message string, args ...interface{}) error {
+	return traceError{parent: err, id: id, message: fmt.Sprintf(message, args...)}
+}
+
+func (e traceError) Error() string {
+	if e.parent != nil {
+		return fmt.Sprintf("<%03d> %s: %s", e.id, e.message, e.parent.Error())
+	}
+	return fmt.Sprintf("<%03d> %s", e.id, e.message)
+}
+
+func (e traceError) Unwrap() error {
+	return e.parent
+}
+
+func frontendError(err error) string {
+	var trace string
+	for ce, ok := err.(traceError); err != nil; ce, ok = err.(traceError) {
+		if ok {
+			trace += fmt.Sprintf("%03d", ce.id)
+		}
+
+		u, ok := err.(interface{ Unwrap() error })
+		if ok {
+			err = u.Unwrap()
+		} else {
+			err = nil
+		}
+	}
+
+	return commitHash + "-" + trace
 }
