@@ -17,6 +17,8 @@ import (
 )
 
 var (
+	commitHash string
+
 	// TODO use this to manage secret https://diogomonica.com/2017/03/27/why-you-shouldnt-use-env-variables-for-secret-data/
 	store          = sessions.NewFilesystemStore(SESSIONS_FOLDER, []byte("my_secret"))
 	queryCount     uint64
