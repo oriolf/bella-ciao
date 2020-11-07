@@ -7,8 +7,14 @@
   const dispatch = createEventDispatcher();
 
   async function deleteFile() {
-    await fetch(`/api/users/files/delete?id=${id}`);
-    dispatch("executed", true);
+    console.log("Deleting file ", id);
+    fetch(`/api/users/files/delete?id=${id}`).then(async (res) => {
+      dispatch("executed", true);
+      if (!res.ok) {
+        let text = await res.text();
+        alert("ERROR: " + text);
+      }
+    });
   }
 </script>
 

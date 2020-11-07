@@ -5,6 +5,7 @@
   export let id: number;
   export let filename: string;
 
+  // TODO right now, if download returns an error, we download a file containing the error text instead of showing an error
   async function downloadFile() {
     let res = await fetch(`/api/users/files/download?id=${id}`);
     let content = window.URL.createObjectURL(await res.blob());

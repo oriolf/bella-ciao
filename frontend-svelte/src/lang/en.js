@@ -32,7 +32,13 @@ const en = {
             image: "Candidate {name} image",
             error: "Could not get candidates",
         },
+        election_results: {
+            name: "Name",
+            points: "Points",
+        },
         election_vote: {
+            election: "Election",
+            election_before: "The election will take place between {start} and {end}",
             election_started: 'The election has started and will be open until {end}',
             form_name: "Check vote",
             token: "Enter the identifier that was given when you voted",
@@ -93,6 +99,7 @@ const en = {
         },
         role_validated: {
             validated: "You have been validated",
+            uploaded_files: "Uploaded files",
         },
         uninitialized: {
             initialize: "Initialize",

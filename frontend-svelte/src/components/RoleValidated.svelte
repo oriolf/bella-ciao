@@ -21,6 +21,6 @@
   <ElectionVote election={elections[0]} />
 {/await}
 
-<h2>Uploaded files</h2>
+<h2>{$_("comp.role_validated.uploaded_files")}</h2>
 
 <UserFiles />

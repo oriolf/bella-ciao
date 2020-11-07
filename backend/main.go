@@ -1,3 +1,4 @@
+// TODO it should be possible to do a semi-presential vote; the admins should be able to register someone manually and set them as "voted"; the results should be CSV-exportable
 package main
 
 import (

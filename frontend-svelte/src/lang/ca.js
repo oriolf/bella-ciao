@@ -32,7 +32,13 @@ const ca = {
             image: "Imatge del candidat {name}",
             error: "No s'han pogut obtindre els candidats",
         },
+        election_results: {
+            name: "Nom",
+            points: "Punts",
+        },
         election_vote: {
+            election: "Votació",
+            election_before: "La votació començarà el {start} i durarà fins {end}",
             election_started: 'La votació ha començat i durarà fins el {end}',
             form_name: "Comprova el vot",
             token: "Introdueix l'identificador que et van mostrar quan quan vas votar",
@@ -93,6 +99,7 @@ const ca = {
         },
         role_validated: {
             validated: "Ja has sigut validat",
+            uploaded_files: "Fitxers pujats",
         },
         uninitialized: {
             initialize: "Inicialitza",

@@ -26,6 +26,7 @@ export type Candidate = {
     name: string,
     presentation: string,
     image: string,
+    points: number,
 };
 
 export type Election = {

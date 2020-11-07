@@ -32,8 +32,14 @@ const es = {
             image: "Imagen del candidato {name}",
             error: "No se han podido obtener los candidatos",
         },
+        election_results: {
+            name: "Nombre",
+            points: "Puntos",
+        },
         election_vote: {
-            election_started: 'La votación ha empezado y durarà hasta el {end}',
+            election: "Votación",
+            election_before: "La votación empezará el {start} i durará hasta el {end}",
+            election_started: 'La votación ha empezado y durará hasta el {end}',
             form_name: "Comprueba el voto",
             token: "Introduce el identificador que se te mostró cuando votaste",
             vote_confirmation: "El voto se ha registrado, puedes comprobar por qué candidatos votaste proporcionando el siguiente identificador: {hash}",
@@ -93,6 +99,7 @@ const es = {
         },
         role_validated: {
             validated: "Ya te han validado",
+            uploaded_files: "Ficheros subidos",
         },
         uninitialized: {
             initialize: "Inicializa",

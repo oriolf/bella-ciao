@@ -9,6 +9,12 @@
     { segment: "faq", href: "faq", name: "faq" },
   ];
 
+  let languages = [
+    { code: "en", name: "English" },
+    { code: "ca", name: "Català" },
+    { code: "es", name: "Español" },
+  ];
+
   async function logout() {
     await fetch("/api/auth/logout");
     user.set(null);
@@ -47,7 +53,7 @@
             class="nav-link"
             aria-current={segment === link.segment ? 'page' : undefined}
             href={link.href}>
-            {$_("comp.nav."+link.name)}
+            {$_('comp.nav.' + link.name)}
             {#if segment === link.segment}
               <span class="sr-only">(current)</span>
             {/if}
@@ -66,20 +72,21 @@
           {$_('comp.nav.language')}
         </a>
         <div class="dropdown-menu" aria-labelledby="languagesDropdown">
-          <a
-            class="dropdown-item"
-            href="."
-            on:click={() => setLanguage('ca')}>Català</a>
-          <a
-            class="dropdown-item"
-            href="."
-            on:click={() => setLanguage('en')}>English</a>
+          {#each languages as lang}
+            <a
+              class="dropdown-item"
+              href="."
+              on:click={() => setLanguage(lang.code)}>{lang.name}</a>
+          {/each}
         </div>
       </li>
     </ul>
     {#if $user}
       <span class="navbar-text">
-        <a class="nav-link" href="." on:click={logout}>{$_("comp.nav.logout")}</a>
+        <a
+          class="nav-link"
+          href="."
+          on:click={logout}>{$_('comp.nav.logout')}</a>
       </span>
     {/if}
   </div>

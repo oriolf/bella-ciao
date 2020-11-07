@@ -5,6 +5,7 @@
   import Alert from "./Alert.svelte";
   import Form from "./Form.svelte";
   import CandidatesVoteList from "./CandidatesVoteList.svelte";
+  import ElectionResults from "./ElectionResults.svelte";
   import Button from "./Buttons/Button.svelte";
   import type { Election, Candidate } from "../types/models.type";
 
@@ -92,11 +93,13 @@
   };
 </script>
 
-<h2>Election</h2>
+<h2>{$_("comp.election_vote.election")}</h2>
 
 {#if new Date() < new Date(election.start)}
   <p>
-    The election will take place between {formatDate(election.start)} and {formatDate(election.end)}
+    {$_("comp.election_vote.election_before", {
+      values: { start: formatDate(election.start), end: formatDate(election.end) }
+    })}
   </p>
 {:else if new Date() > new Date(election.start) && new Date() < new Date(election.end)}
   <p>
@@ -164,6 +167,6 @@
     </div>
   {/if}
 {:else}
-  <!-- TODO link to results page -->
   <p>{$_("comp.election_vote.election_results")}</p>
+  <ElectionResults {election} />
 {/if}

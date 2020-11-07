@@ -25,6 +25,6 @@ import { _ } from "svelte-i18n";
     <DownloadFileButton id={row.id} filename={row.name} />
   </td>
   <td>
-    <DeleteFileButton on:executed={getFiles} />
+    <DeleteFileButton id={row.id} on:executed={getFiles} />
   </td>
 </CardTable>
