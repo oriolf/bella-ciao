@@ -26,6 +26,9 @@ type queriedUser struct {
 }
 
 func InitDB(db *sql.Tx) error {
+	// TODO write this as a list of "migrations"; add a table so the DB knows in which
+	// 		migration state it is; only execute migrations not yet executed; increaso
+	//		migration state every time a new migration element is executed
 	types := []DBType{
 		User{},
 		UserFile{},
