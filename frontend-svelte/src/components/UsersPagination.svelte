@@ -12,6 +12,7 @@
   export let url: string;
   export let error: string;
   export let unvalidated: boolean;
+  export let cardID: string;
   let response: Promise<{
     users: User[],
     total: number
@@ -75,7 +76,7 @@
   }
 </style>
 
-<div class="card">
+<div class="card" id={cardID}>
   <div class="card-body">
     <div class="input-group mb-3">
       <input

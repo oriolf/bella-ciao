@@ -22,6 +22,7 @@
 <h2>Users pending validation</h2>
 
 <UsersPagination
+  cardID="unvalidated"
   unvalidated={true}
   error={$_("comp.role_admin.pending_err")}
   url="/api/users/unvalidated/get" />
@@ -29,6 +30,7 @@
 <h2>Validated users</h2>
 
 <UsersPagination
+  cardID="validated"
   unvalidated={false}
   error={$_("comp.role_admin.validated_err")}
   url="/api/users/validated/get" />

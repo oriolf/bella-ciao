@@ -4,7 +4,7 @@
   import DeleteFileButton from "./Buttons/DeleteFileButton.svelte";
   import { get, sortByField } from "../util";
   import type { UserFile } from "../types/models.type";
-import { _ } from "svelte-i18n";
+  import { _ } from "svelte-i18n";
 
   let files: Promise<UserFile[]>;
   export let reloadFiles: number = 0;
