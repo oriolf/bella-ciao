@@ -24,7 +24,7 @@ type User struct {
 
 func (u User) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS users (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		unique_id text UNIQUE NOT NULL,
 		email text UNIQUE NOT NULL,
@@ -44,7 +44,7 @@ type UserFile struct {
 
 func (f UserFile) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS files (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		user_id integer NOT NULL REFERENCES users(id),
 		name TEXT UNIQUE NOT NULL,
 		description text NOT NULL
@@ -60,7 +60,7 @@ type UserMessage struct {
 
 func (m UserMessage) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS messages (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		user_id integer NOT NULL REFERENCES users(id),
 		content TEXT NOT NULL,
 		solved BOOLEAN NOT NULL
@@ -75,7 +75,7 @@ type Config struct {
 
 func (v Config) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS config (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		id_formats json NOT NULL
 	);`
 }
@@ -97,7 +97,7 @@ type Election struct {
 
 func (e Election) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS elections (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
 		date_start TIMESTAMP WITH TIME ZONE NOT NULL,
 		date_end TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -121,7 +121,7 @@ type Candidate struct {
 
 func (c Candidate) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS candidates (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		election_id INTEGER NOT NULL REFERENCES elections(id),
 		name TEXT NOT NULL,
 		presentation TEXT NOT NULL,
@@ -141,7 +141,7 @@ type Vote struct {
 
 func (v Vote) CreateTableQuery() string {
 	return `CREATE TABLE IF NOT EXISTS votes (
-		id integer NOT NULL PRIMARY KEY,
+		id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 		election_id INTEGER NOT NULL REFERENCES elections(id),
 		hash TEXT UNIQUE NOT NULL,
 		candidates json NOT NULL

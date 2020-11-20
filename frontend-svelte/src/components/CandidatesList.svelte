@@ -12,7 +12,6 @@
 
   $: getCandidates(reloadCandidates);
 
-  getCandidates(reloadCandidates);
   function getCandidates(_: number) {
     promise = get("/api/candidates/get", null) as Promise<Candidate[]>;
   }

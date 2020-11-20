@@ -10,6 +10,7 @@
 
   let messages: Promise<UserMessage[]>;
   let reloadFiles: number = 0;
+  // TODO clear form after uploading file
   let uploadFileForm: FormParams = {
     name: "comp.role_none.upload_file",
     values: "form",

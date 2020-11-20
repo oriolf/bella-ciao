@@ -1,10 +1,6 @@
 describe('Non authenticated user', () => {
-    function setEnglish() {
-        localStorage.setItem('bella-ciao.lang', 'en');
-    }
-
     beforeEach(() => {
-        cy.visit('/', { onBeforeLoad: setEnglish() });
+        cy.visit('/', { onBeforeLoad: () => { localStorage.setItem('bella-ciao.lang', 'en'); } });
     });
 
     it('shows the log in card', () => {
@@ -20,6 +16,6 @@ describe('Non authenticated user', () => {
     it('navigates to /faq', () => {
         cy.get('nav a').contains('FAQ').click();
         cy.url().should('include', '/faq');
-        cy.contains('h1', 's');
+        cy.contains('h1', 'questions');
     });
 });
