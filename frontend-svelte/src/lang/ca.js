@@ -146,6 +146,7 @@ const ca = {
             solved: "Resolt",
             not_solved: "No resolt",
             close: "Tanca",
+            validate: "Valida",
         },
     },
 }

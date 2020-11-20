@@ -146,6 +146,7 @@ const es = {
             solved: "Resuelto",
             not_solved: "No resuelto",
             close: "Cierra",
+            validate: "Valida",
         },
     },
 }

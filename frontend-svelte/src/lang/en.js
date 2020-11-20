@@ -146,6 +146,7 @@ const en = {
             solved: "Already solved",
             not_solved: "Not solved yet",
             close: "Close",
+            validate: "Validate",
         },
     },
 }

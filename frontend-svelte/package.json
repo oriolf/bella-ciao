@@ -11,7 +11,8 @@
         "cy:open": "cypress open",
         "test": "run-p --race dev cy:run",
         "db:register": "../test/seed_db.sh register",
-        "db:validate": "../test/seed_db.sh validate"
+        "db:validate": "../test/seed_db.sh validate",
+        "db:vote": "../test/seed_db.sh vote"
     },
     "dependencies": {
         "compression": "^1.7.1",

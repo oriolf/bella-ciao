@@ -357,22 +357,27 @@ func TestAPI(t *testing.T) {
 		testEndpoint("/elections/get", 200, to{expectedElections: []Election{election}}))
 
 	// more candidates for the election
-	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
-	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
-	t.Run("Admin users should be able to add candidates",
-		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate1}))
-
 	candidate2, candidate3, candidate4 := candidate1, candidate1, candidate1
+	candidate2.Name = "candidate 2"
 	candidate2.ID = 3
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate2}))
 	candidate2.Image = "candidate_1.jpg"
-	election.Candidates = append(election.Candidates, candidate2)
+
+	candidate3.Name = "candidate 3"
 	candidate3.ID = 4
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate3}))
 	candidate3.Image = "candidate_2.jpg"
-	election.Candidates = append(election.Candidates, candidate3)
+
+	candidate4.Name = "candidate 4"
 	candidate4.ID = 5
+	t.Run("Admin users should be able to add candidates",
+		testEndpoint("/candidates/add", 200, to{cookies: cookies1, candidate: candidate4}))
 	candidate4.Image = "candidate_3.jpg"
+
+	election.Candidates = append(election.Candidates, candidate2)
+	election.Candidates = append(election.Candidates, candidate3)
 	election.Candidates = append(election.Candidates, candidate4)
 
 	t.Run("Admin user should not be able to vote before election start",

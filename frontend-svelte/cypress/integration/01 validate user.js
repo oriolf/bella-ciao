@@ -4,10 +4,10 @@ describe('Admin user', () => {
     });
 
     beforeEach(() => {
-        cy.visit('/');
+        cy.visit('/', { onBeforeLoad: () => { localStorage.setItem('bella-ciao.lang', 'en') } });
         cy.get('#unique_id').type("11111111H");
         cy.get('#password').type("12345678");
-        cy.get('button').contains('Entra').click();
+        cy.get('button').contains('Log in').click();
     });
 
     it('shows the list of existing users and allows validation', () => {

@@ -136,7 +136,7 @@
       </div>
     {/if}
   {:else}
-    <div class="card" style="padding: 5px;">
+    <div class="card" id="candidates" style="padding: 5px;">
       <div class="row">
         <div class="col-12">
           <p>{$_("comp.election_vote.candidates_range", {values: { min: election.min_candidates, max: election.max_candidates }})}</p>

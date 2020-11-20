@@ -12,7 +12,7 @@
   export let list: Candidate[];
 </script>
 
-<table class="table" style="margin-bottom: 0;">
+<table class="table" style="margin-bottom: 0;" id={selected ? "selected-candidates" : "nonselected-candidates"}>
   <thead>
     <tr>
       {#if selected}

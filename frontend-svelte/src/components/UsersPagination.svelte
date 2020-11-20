@@ -114,7 +114,7 @@
               </div>
               <div class="col-3">
                 <Button
-                  content="Validate"
+                  content={$_("comp.users_pagination.validate")}
                   type="success"
                   callback={() => validateUser(user.id)} />
               </div>
