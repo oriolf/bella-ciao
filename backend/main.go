@@ -110,6 +110,7 @@ var (
 		"/candidates/delete": handler(idParams, authFuncs(requireLogin, adminUser, electionDidNotStart), DeleteCandidate),
 
 		"/elections/get":        handler(noParams, noLogin, GetElections),
+		"/elections/check":      handler(noParams, noLogin, CheckElections),
 		"/elections/publish":    handler(idParams, authFuncs(requireLogin, adminUser), PublishElection),
 		"/elections/vote":       handler(voteParams, authFuncs(requireLogin, validatedUser), CastVote),
 		"/elections/vote/check": handler(checkVoteParams, noLogin, CheckVote),
@@ -335,7 +336,7 @@ func countElection(tx *sql.Tx, e Election) error {
 		votes = append(votes, v.Candidates)
 	}
 
-	results, err := countVotes(len(e.Candidates), votes, e.CountMethod)
+	results, err := countVotes(e.Candidates, votes, e.CountMethod)
 	if err != nil {
 		return wrapError(err, 138, "could not count votes")
 	}

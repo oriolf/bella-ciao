@@ -12,7 +12,8 @@
         "test": "run-p --race dev cy:run",
         "db:register": "../test/seed_db.sh register",
         "db:validate": "../test/seed_db.sh validate",
-        "db:vote": "../test/seed_db.sh vote"
+        "db:vote": "../test/seed_db.sh vote",
+        "db:results": "../test/seed_db.sh results"
     },
     "dependencies": {
         "compression": "^1.7.1",

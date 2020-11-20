@@ -335,6 +335,11 @@ func GetElections(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User
 	return nil
 }
 
+func CheckElections(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, params par.Values) error {
+	checkElectionsCount()
+	return nil
+}
+
 func PublishElection(r *http.Request, w http.ResponseWriter, db *sql.Tx, user *User, p par.Values) error {
 	if err := publishElection(db, p.Int("id")); err != nil {
 		return wrapError(err, 82, "could not delete candidate")

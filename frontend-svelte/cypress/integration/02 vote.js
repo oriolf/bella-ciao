@@ -1,4 +1,4 @@
-describe('Admin user', () => {
+describe('A validated user can vote', () => {
     before(() => {
         cy.exec("npm run db:vote");
     });
@@ -13,7 +13,6 @@ describe('Admin user', () => {
     it('shows validated message and allows voting', () => {
         cy.get(".alert").contains('You have been validated');
 
-        //cy.get(".card").contains("Candidates").get("tr").contains("candidate 1").get("button").click();
         cy.get("#nonselected-candidates").find("tr").contains("candidate 1").siblings().find("button").click();
         cy.get("#nonselected-candidates").find("tr").contains("candidate 2").siblings().find("button").click();
         cy.get("#nonselected-candidates").find("tr").contains("candidate 3").siblings().find("button").click();

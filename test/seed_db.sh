@@ -10,4 +10,8 @@ elif [ "$1" = "vote" ]; then
     sqlite3 $db "UPDATE users SET has_voted=0 WHERE unique_id='88888888Y';"
     sqlite3 $db "DELETE FROM votes;"
     sqlite3 $db "UPDATE elections SET date_start='$datetime', counted=0;"
+elif [ "$1" = "results" ]; then
+    datetime=$(date -d '1 hour ago' --rfc-3339='ns')
+    sqlite3 $db "UPDATE elections SET date_end='$datetime', counted=0;"
+    curl http://localhost:9876/elections/check
 fi

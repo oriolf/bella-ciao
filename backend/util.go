@@ -372,7 +372,7 @@ func periodicFunc(f func(), d time.Duration) {
 
 // each vote is a list of candidates
 // the result is a map where each candidate has its result
-func countVotes(totalCandidates int, votes [][]int, countMethod string) (map[int]float64, error) {
+func countVotes(candidates []Candidate, votes [][]int, countMethod string) (map[int]float64, error) {
 	countFunc, ok := map[string]func(int, int) float64{
 		COUNT_BORDA:   countBorda,
 		COUNT_DOWDALL: countDowdall,
@@ -381,11 +381,15 @@ func countVotes(totalCandidates int, votes [][]int, countMethod string) (map[int
 		return nil, traceError{id: 19, message: "unknown count method"}
 	}
 
-	points := make(map[int]float64, totalCandidates)
+	points := make(map[int]float64, len(candidates))
+	for _, candidate := range candidates {
+		points[candidate.ID] = 0
+	}
+
 	for _, vote := range votes {
 		for index, candidate := range vote {
 			// the puntuation depends on the index inside the list and possibly on the number of candidates
-			points[candidate] += countFunc(index, totalCandidates)
+			points[candidate] += countFunc(index, len(candidates))
 		}
 	}
 
