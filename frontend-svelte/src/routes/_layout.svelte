@@ -2,7 +2,11 @@
 	import Nav from '../components/Nav.svelte';
 	import { setupI18n } from "../i18n.js";
 
-	setupI18n();
+	if (typeof window !== 'undefined') {
+		setupI18n(localStorage);
+	} else {
+		setupI18n(null);
+	}
 
 	export let segment: string;
 </script>

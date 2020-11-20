@@ -22,7 +22,7 @@
   }
 
   function setLanguage(lang: string) {
-    // TODO save locale preference in browser, and retrieve it on init...
+    localStorage.setItem('bella-ciao.lang', lang);
     locale.set(lang);
   }
 </script>
