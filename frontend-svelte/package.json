@@ -43,7 +43,7 @@
         "rollup-plugin-svelte": "^5.0.1",
         "rollup-plugin-terser": "^6.1.0",
         "sapper": "^0.28.0",
-        "svelte": "^3.17.3",
+        "svelte": "^3.49.0",
         "svelte-bootstrap-icons": "^1.0.0",
         "svelte-check": "^1.0.41",
         "svelte-preprocess": "^4.2.1",
